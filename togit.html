@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>農田水利颱洪暴雨24小時即時雨量</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #header {
+      height: 60px;
+      background: #f8f8f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      font-family: Arial, sans-serif;
+    }
+    #header h1 {
+      margin: 0;
+      font-size: 24px;
+      color: #333;
+    }
+    #main-content {
+      display: flex;
+      height: calc(100vh - 60px);
+    }
+    #cwa-frame {
+      width: 350px;
+      height: 100%;
+      background: #f8f8f8;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    #cwa-frame iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    #cwa-frame .fallback {
+      text-align: center;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+    }
+    #cwa-frame .fallback a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    #cwa-frame .fallback a:hover {
+      text-decoration: underline;
+    }
+    #map {
+      height: 100%;
+      width: calc(100% - 600px); /* 350px 左側 + 250px 右側 */
+    }
+    #ranking {
+      width: 250px;
+      height: 100%;
+      background: #f8f8f8;
+      padding: 10px;
+      box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+      font-family: Arial, sans-serif;
+    }
+    #ranking h2 {
+      font-size: 18px;
+      margin: 0 0 10px;
+      text-align: center;
+    }
+    #ranking ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 20px 0;
+    }
+    #ranking li {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      transition: background-color 0.2s;
+    }
+    #ranking li:hover {
+      background-color: #e8f4f8;
+    }
+    #ranking li:last-child {
+      border-bottom: none;
+    }
+    #ranking .rank {
+      font-weight: bold;
+    }
+    #ranking .rain {
+      color: #d63031;
+    }
+    #ranking .watershed {
+      color: #900;
+    }
+    
+    /* 測站標籤樣式 */
+    .station-label {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 12px;
+      font-weight: bold;
+      color: black;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+    }
+    
+    /* 控制面板樣式 */
+    #label-controls {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+    }
+    
+    #label-controls label {
+      display: block;
+      margin-bottom: 5px;
+      cursor: pointer;
+    }
+    
+    #label-controls input[type="checkbox"] {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>農田水利颱洪暴雨24小時即時雨量</h1>
+  </div>
+  <div id="main-content">
+    <div id="cwa-frame">
+      <iframe src="https://www.cwa.gov.tw/V8/C/P/Rainfall/Rainfall_QZJ.html" title="CWA Rainfall Ranking"></iframe>
+      <div class="fallback">
+        如果無法載入雨量排名，請
+        <a href="https://www.cwa.gov.tw/V8/C/P/Rainfall/Rainfall_QZJ.html" target="_blank">
+          點此查看中央氣象署雨量排名
+        </a>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div id="ranking">
+
+      
+      <h2>24小時累積雨量之前十名測站</h2>
+      <ul id="ranking-list"></ul>
+      <h2>區域排水超過十年重現期</h2>
+      <ul id="red-watersheds"></ul>
+    </div>
+  </div>
+
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Esri Leaflet for FeatureLayer -->
+  <script src="https://unpkg.com/esri-leaflet/dist/esri-leaflet.js"></script>
+
+  <script>
+    // 建立地圖
+    const map = L.map("map").setView([23.5, 121], 7);
+
+    // 多種底圖選項
+    const baseMaps = {
+      "CartoDB Positron": L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: "© OpenStreetMap contributors, © CartoDB"
+      }),
+      "OpenStreetMap": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors"
+      }),
+      "國土測繪中心通用版電子地圖": L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}.png", {
+        attribution: "© 國土測繪中心"
+      }),
+      "國土測繪中心正射影像": L.tileLayer("https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg", {
+        attribution: "© 國土測繪中心"
+      })
+    };
+
+    // 設定預設底圖
+    baseMaps["CartoDB Positron"].addTo(map);
+
+    // 國土測繪中心縣市界圖層 (WMTS)
+    const cityLayer = L.tileLayer(
+      "https://wmts.nlsc.gov.tw/wmts/CITY/default/GoogleMapsCompatible/{z}/{y}/{x}.png",
+      {
+        attribution: "© 國土測繪中心",
+        tileSize: 256,
+        maxZoom: 19,
+        opacity: 0.6
+      }).addTo(map);
+
+    // 顏色函數 - 白到紅，雨量越大越紅
+    function getColor(rain) {
+      return rain > 200 ? "#800026" :
+             rain > 100 ? "#BD0026" :
+             rain > 50  ? "#E31A1C" :
+             rain > 20  ? "#FC4E2A" :
+             rain > 10  ? "#FD8D3C" :
+             rain > 1   ? "#FEB24C" :
+             rain > 0   ? "#FED976" :
+                          "#FFFFFF";
+    }
+
+    let stationPoints = [];
+    let stationLayerGroup = L.layerGroup(); // 合併後的測站圖層
+    let watershedLayer;
+    let top10Stations = [];
+
+    // 地圖縮放事件
+    map.on('zoomend', updateStationDisplay);
+
+    fetch("https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWA-3136E89E-8A4C-40CB-BCF2-2C1D2E78AF8D&RainfallElement=Past24hr")
+      .then((res) => res.json())
+      .then((data) => {
+        const stations = data.records?.Station || [];
+        stations.forEach((station) => {
+          const coord = station.GeoInfo?.Coordinates?.find((c) => c.CoordinateName === "WGS84");
+          const lat = parseFloat(coord?.StationLatitude);
+          const lon = parseFloat(coord?.StationLongitude);
+          const rain = parseFloat(station.RainfallElement?.Past24hr?.Precipitation);
+
+          if (!isNaN(lat) && !isNaN(lon) && !isNaN(rain)) {
+            stationPoints.push({ lat, lon, rain, name: station.StationName });
+          }
+        });
+        
+        displayTop10Ranking();
+        updateStationDisplay();
+        loadWatersheds();
+      })
+      .catch((err) => {
+        console.error("雨量站資料載入失敗", err);
+        loadWatersheds();
+      });
+
+    function displayTop10Ranking() {
+      const rankingList = document.getElementById("ranking-list");
+      rankingList.innerHTML = "";
+      top10Stations = stationPoints.sort((a, b) => b.rain - a.rain).slice(0, 10);
+      top10Stations.forEach((station, index) => {
+        // 更新排行榜
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="rank">${index + 1}. ${station.name}</span><span class="rain">${station.rain} mm</span>`;
+        
+        // 添加點擊事件，點選後移動到該測站
+        li.style.cursor = "pointer";
+        li.addEventListener("click", () => {
+          map.setView([station.lat, station.lon], 13);
+          
+          // 高亮顯示選中的測站
+          stationLayerGroup.eachLayer((layer) => {
+            if (layer instanceof L.CircleMarker) {
+              const layerLatLng = layer.getLatLng();
+              if (layerLatLng.lat === station.lat && layerLatLng.lng === station.lon) {
+                // 暫時改變樣式以高亮顯示
+                const originalStyle = {
+                  radius: layer.options.radius,
+                  weight: layer.options.weight,
+                  color: layer.options.color
+                };
+                
+                layer.setStyle({
+                  radius: 8,
+                  weight: 3,
+                  color: "#ff0000"
+                });
+                
+                // 打開彈出窗口
+                layer.openPopup();
+                
+                // 3秒後恢復原樣式
+                setTimeout(() => {
+                  layer.setStyle(originalStyle);
+                }, 3000);
+              }
+            }
+          });
+        });
+        
+        rankingList.appendChild(li);
+      });
+    }
+
+    function updateStationDisplay() {
+      const zoomThreshold = 11;
+      const currentZoom = map.getZoom();
+      
+      // 檢查雨量測站圖層是否在地圖上
+      if (!map.hasLayer(stationLayerGroup)) {
+        return; // 如果圖層不在地圖上，就不更新
+      }
+      
+      // 清空現有圖層
+      stationLayerGroup.clearLayers();
+      
+      // 顯示所有測站
+      const stationsToShow = stationPoints;
+      
+      stationsToShow.forEach((station) => {
+        // 建立測站標記
+        const marker = L.circleMarker([station.lat, station.lon], {
+          radius: 4.5,
+          fillColor: getColor(station.rain),
+          color: "#333",
+          weight: 1,
+          fillOpacity: 0.8,
+        });
+        marker.bindPopup(`<b>${station.name}</b><br>24小時累積雨量：${station.rain} mm`);
+        stationLayerGroup.addLayer(marker);
+        
+        // 如果縮放等級>=11，添加測站標籤
+        if (currentZoom >= zoomThreshold) {
+          const label = L.marker([station.lat, station.lon], {
+            icon: L.divIcon({
+              className: 'station-label',
+              html: station.name,
+              iconSize: [null, null],
+              iconAnchor: [0, -10]
+            })
+          });
+          stationLayerGroup.addLayer(label);
+        }
+      });
+    }
+
+    function displayRedWatersheds(redWatersheds) {
+      const redWatershedsList = document.getElementById("red-watersheds");
+      redWatershedsList.innerHTML = "";
+      redWatersheds.forEach((watershed) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="watershed">${watershed}</span>`;
+        redWatershedsList.appendChild(li);
+      });
+    }
+
+    function loadWatersheds() {
+      watershedLayer = L.esri.featureLayer({
+        url: "https://gisportal.triwra.org.tw/server/rest/services/Hosted/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4_test_WFL1/FeatureServer/0",
+        style: function (feature) {
+          return {
+            color: "#666",
+            weight: 1,
+            fillColor: "#ccc",
+            fillOpacity: 0.4,
+          };
+        },
+        onEachFeature: function (feature, layer) {
+          layer.bindPopup(
+            `${feature.properties?.area_name || "無"}<br>` +
+            `<b>十年重現期：</b>${feature.properties?.test || "無"}`
+          );
+        },
+        zIndex: 1
+      }).addTo(map);
+
+      const redWatersheds = [];
+      watershedLayer.on("load", () => {
+        watershedLayer.eachFeature((layer) => {
+          const feature = layer.feature;
+          const testValue = parseFloat(feature.properties?.test);
+          if (isNaN(testValue)) return;
+
+          const stationsInside = stationPoints.filter((pt) =>
+            layer.getBounds().contains([pt.lat, pt.lon])
+          );
+
+          let fillColor = "#00FF00";
+          let fillOpacity = 0.4;
+          let color = "#666";
+          let weight = 1;
+
+          if (stationsInside.some((pt) => pt.rain > testValue)) {
+            fillColor = "red";
+            fillOpacity = 0.7;
+            color = "#900";
+            weight = 2;
+            const watershedName = feature.properties?.area_name || "未知集水區";
+            if (!redWatersheds.includes(watershedName)) {
+              redWatersheds.push(watershedName);
+            }
+          } else if (stationsInside.some((pt) => pt.rain >= testValue * 0.8)) {
+            fillColor = "yellow";
+            fillOpacity = 0.6;
+          }
+
+          layer.setStyle({
+            fillColor: fillColor,
+            fillOpacity: fillOpacity,
+            color: color,
+            weight: weight,
+          });
+        });
+
+        displayRedWatersheds(redWatersheds);
+
+        // 顯示測站圖層在最上方
+        stationLayerGroup.addTo(map);
+        stationLayerGroup.bringToFront();
+        
+        // 初始化測站顯示
+        updateStationDisplay();
+      });
+
+      // 建立完整的圖層控制，包含底圖和覆蓋圖層
+      const overlayMaps = {
+        "雨量測站": stationLayerGroup, // 合併後的圖層
+        "區域排水": watershedLayer,
+        "縣市界": cityLayer,
+      };
+      
+      // 加入底圖和覆蓋圖層的控制面板
+      const layerControl = L.control.layers(baseMaps, overlayMaps, { position: "topright" }).addTo(map);
+      
+      // 監聽圖層變化事件
+      map.on('overlayadd overlayremove', function(e) {
+        if (e.name === '雨量測站') {
+          // 當雨量測站圖層被添加時，更新顯示
+          if (e.type === 'overlayadd') {
+            updateStationDisplay();
+          }
+          // 當雨量測站圖層被移除時，清空圖層
+          if (e.type === 'overlayremove') {
+            stationLayerGroup.clearLayers();
+          }
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>
