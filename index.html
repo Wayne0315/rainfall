@@ -580,7 +580,7 @@
         onEachFeature: function (feature, layer) {
           layer.bindPopup(
             `${feature.properties?.area_name || "無"}<br>` +
-            `<b>十年重現期：</b>${feature.properties?.test || "無"}`
+            `<b>十年重現期：</b>${feature.properties?.temp || "無"}`
           );
         },
         zIndex: 1
