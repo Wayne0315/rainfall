@@ -590,8 +590,8 @@
         const redWatershedsData = []; // 每次圖層載入時，都重新建立一個空的陣列
         watershedLayer.eachFeature((layer) => {
           const feature = layer.feature;
-          const testValue = parseFloat(feature.properties?.test);
-          if (isNaN(testValue)) return;
+          const tempValue = parseFloat(feature.properties?.temp);
+          if (isNaN(tempValue)) return;
 
           // 使用100m緩衝區搜尋測站
           const stationsInside = getStationsWithinBuffer(layer, stationPoints, 100);
@@ -602,7 +602,7 @@
           let weight = 1;
 
           // 找出超過十年重現期或接近的測站
-          const exceedingStations = stationsInside.filter((pt) => pt.rain > testValue);
+          const exceedingStations = stationsInside.filter((pt) => pt.rain > tempValue);
           
           if (exceedingStations.length > 0) {
             fillColor = "red";
@@ -620,7 +620,7 @@
               name: watershedName,
               triggerStations: triggerStations
             });
-          } else if (stationsInside.some((pt) => pt.rain >= testValue * 0.8)) {
+          } else if (stationsInside.some((pt) => pt.rain >= tempValue * 0.8)) {
             fillColor = "#FFF79D";
             fillOpacity = 0.4;
           }
