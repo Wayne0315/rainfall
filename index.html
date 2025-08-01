@@ -336,14 +336,21 @@
       line-height: 1.2;
     }
 
+
     /* 響應式調整 */
     @media (max-width: 768px) {
+      /* 允許頁面在手機上滾動 */
+      body {
+        overflow: auto;
+      }
       #main-content {
         flex-direction: column;
+        height: auto; /* 讓內容決定整體高度 */
       }
       #cwa-frame, #ranking {
         width: 100% !important; /* 覆蓋 JS 設置的寬度 */
-        height: 300px;
+        height: 300px; /* 維持區塊的固定高度 */
+        flex-shrink: 0; /* 防止區塊被壓縮 */
         border-radius: 0;
         box-shadow: none;
         max-width: none;
@@ -353,8 +360,7 @@
       }
       #map {
         width: 100%;
-        height: calc(100vh - 60px - 600px);
-        min-height: 300px;
+        height: 400px; /* 設定一個在手機上較合理的固定高度 */
       }
       .legend {
         position: static;
@@ -366,6 +372,7 @@
         border: 1px solid #ddd;
       }
     }
+
   </style>
 </head>
 <body>
