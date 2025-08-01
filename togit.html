@@ -14,6 +14,7 @@
       flex-direction: column;
       height: 100vh;
       font-family: 'Inter', Arial, sans-serif; /* 使用 Inter 字體 */
+      overflow: hidden; /* 防止拖曳時出現滾動條 */
     }
 
     /* 頂部標頭樣式 */
@@ -27,6 +28,7 @@
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
       border-bottom-left-radius: 8px; /* 圓角 */
       border-bottom-right-radius: 8px; /* 圓角 */
+      flex-shrink: 0;
     }
     #header h1 {
       margin: 0;
@@ -57,6 +59,7 @@
       border-top-right-radius: 8px; /* 圓角 */
       border-bottom-right-radius: 8px; /* 圓角 */
       transition: width 0.3s ease-in-out; /* 寬度變化時的平滑過渡 */
+      flex-shrink: 0;
     }
     #cwa-frame.collapsed {
       width: 40px; /* 收合後的寬度 */
@@ -126,30 +129,43 @@
     #map {
       flex-grow: 1;
       height: 100%;
-      min-width: 400px;
     }
-    #ranking #ranking-list-title {
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid #ddd;
-    }  
+
+    /* --- 新增：可調整大小的拉桿 --- */
+    #resizer {
+        width: 5px;
+        background: #ccc;
+        cursor: col-resize; /* 滑鼠游標變為左右箭頭 */
+        height: 100%;
+        flex-shrink: 0;
+    }
 
     /* 右側排名列表 */
     #ranking {
-      width: 250px;
+      width: 280px; /* 初始寬度 */
+      min-width: 200px; /* 最小寬度 */
+      max-width: 500px; /* 最大寬度 */
       height: 100%;
       background: #f8f8f8;
-      padding: 10px;
       box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
       overflow-y: auto;
       border-top-left-radius: 8px;
       border-bottom-left-radius: 8px;
+      flex-shrink: 0;
+    }
+    #ranking-content {
+        padding: 10px;
     }
     #ranking h2 {
       font-size: 18px;
       margin: 0 0 10px;
       text-align: center;
       color: #333;
+    }
+    #ranking #ranking-list-title {
+        margin-top: 5px;
+        padding-top: 5px;
+        border-top: 1px solid #ddd;
     }
     #ranking ul {
       list-style: none;
@@ -204,6 +220,7 @@
     }
 
     /* 縣市群聚標記樣式 */
+
     .county-cluster-marker {
       background-color: rgba(162, 162, 162, 0.8);
       border-radius: 50%;
@@ -218,11 +235,18 @@
       transition: background-color 0.2s, transform 0.2s;
     }
     .county-cluster-marker:hover {
-        background-color: rgba(70, 70, 180, 0.9);
+        background-color: rgba(8, 144, 255, 0.9);
         transform: scale(1.1);
     }
 
-    /* 圖例樣式 */
+    .county-cluster-marker div:first-child {
+      font-size: 13px;
+    }
+    .county-cluster-marker div:last-child {
+      font-size: 11px;
+    }
+
+    /* --- 可收合圖例樣式 --- */
     .legend {
       position: absolute;
       bottom: 20px;
@@ -236,13 +260,43 @@
       z-index: 1000;
       border: 1px solid #ddd;
     }
-    .legend h3 {
-      margin: 0 0 10px 0;
+    .legend-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .legend-header h3 {
       font-size: 14px;
       font-weight: bold;
       color: #333;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 5px;
+      margin: 0;
+    }
+    .legend-toggle {
+      font-size: 24px;
+      font-weight: bold;
+      line-height: 1;
+      user-select: none; /* 防止點擊時選取文字 */
+    }
+    .legend-toggle::before {
+      content: "−"; /* 預設為打開狀態的減號 */
+    }
+    .legend.collapsed .legend-toggle::before {
+      content: "+"; /* 收合狀態的加號 */
+    }
+    .legend-content {
+      max-height: 500px; /* 設定一個足夠大的高度 */
+      overflow: hidden;
+      transition: max-height 0.3s ease-out, padding-top 0.3s ease-out, margin-top 0.3s ease-out;
+      margin-top: 10px;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+    }
+    .legend.collapsed .legend-content {
+      max-height: 0;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
     }
     .legend-section {
       margin-bottom: 15px;
@@ -288,10 +342,14 @@
         flex-direction: column;
       }
       #cwa-frame, #ranking {
-        width: 100%;
+        width: 100% !important; /* 覆蓋 JS 設置的寬度 */
         height: 300px;
         border-radius: 0;
         box-shadow: none;
+        max-width: none;
+      }
+      #resizer {
+          display: none; /* 手機版隱藏拉桿 */
       }
       #map {
         width: 100%;
@@ -331,101 +389,111 @@
       </button>
     </div>
     <div id="map">
+      <!-- --- 修改圖例 HTML 結構 --- -->
       <div class="legend" id="legend">
-        <h3>圖例</h3>
-        <div class="legend-section">
-          <h4>24小時累積雨量 (mm)</h4>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #FFD5FD;"></div>
-            <div class="legend-text"> 300</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #FF38FB;"></div>
-            <div class="legend-text">200-300</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #DB2CD1;"></div>
-            <div class="legend-text">150-200</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #A920A2;"></div>
-            <div class="legend-text">130-150</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #AA1801;"></div>
-            <div class="legend-text">110-130</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #DB2204;"></div>
-            <div class="legend-text">90-110</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #FF2A08;"></div>
-            <div class="legend-text">70-90</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #FFA71F;"></div>
-            <div class="legend-text">50-70</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #FFD328;"></div>
-            <div class="legend-text">40-50</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #FEFD31;"></div>
-            <div class="legend-text">30-40</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #02FA30;"></div>
-            <div class="legend-text">20-30</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #27A41C;"></div>
-            <div class="legend-text">15-20</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #0177FD;"></div>
-            <div class="legend-text">10-15</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #00A5FE;"></div>
-            <div class="legend-text">6-10</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #01D2FD;"></div>
-            <div class="legend-text">2-6</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #9EFDFF;"></div>
-            <div class="legend-text">1-2</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #CACACA;"></div>
-            <div class="legend-text"> 1</div>
-          </div>
+        <div class="legend-header">
+          <h3>圖例</h3>
+          <span class="legend-toggle"></span>
         </div>
-        <div class="legend-section">
-          <h4>區域排水狀態</h4>
-          <div class="legend-item">
-            <div class="legend-color watershed" style="background-color: #BE0202; opacity: 0.4;"></div>
-            <div class="legend-text">雨量超過十年重現期(致災)</div>
+        <div class="legend-content">
+          <div class="legend-section">
+            <h4>24小時累積雨量 (mm)</h4>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #FFD5FD;"></div>
+              <div class="legend-text"> > 300</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #FF38FB;"></div>
+              <div class="legend-text">200-300</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #DB2CD1;"></div>
+              <div class="legend-text">150-200</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #A920A2;"></div>
+              <div class="legend-text">130-150</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #AA1801;"></div>
+              <div class="legend-text">110-130</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #DB2204;"></div>
+              <div class="legend-text">90-110</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #FF2A08;"></div>
+              <div class="legend-text">70-90</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #FFA71F;"></div>
+              <div class="legend-text">50-70</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #FFD328;"></div>
+              <div class="legend-text">40-50</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #FEFD31;"></div>
+              <div class="legend-text">30-40</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #02FA30;"></div>
+              <div class="legend-text">20-30</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #27A41C;"></div>
+              <div class="legend-text">15-20</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #0177FD;"></div>
+              <div class="legend-text">10-15</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #00A5FE;"></div>
+              <div class="legend-text">6-10</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #01D2FD;"></div>
+              <div class="legend-text">2-6</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #9EFDFF;"></div>
+              <div class="legend-text">1-2</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #CACACA;"></div>
+              <div class="legend-text"> < 1</div>
+            </div>
           </div>
-          <div class="legend-item">
-            <div class="legend-color watershed" style="background-color: #fff050; opacity: 0.4;"></div>
-            <div class="legend-text">雨量接近十年重現期(警戒)</div>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color watershed" style="background-color: #95E605; opacity: 0.2;"></div>
-            <div class="legend-text">正常狀態</div>
+          <div class="legend-section">
+            <h4>區域排水狀態</h4>
+            <div class="legend-item">
+              <div class="legend-color watershed" style="background-color: #BE0202; opacity: 0.4;"></div>
+              <div class="legend-text">雨量超過十年重現期(致災)</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color watershed" style="background-color: #fff050; opacity: 0.4;"></div>
+              <div class="legend-text">雨量接近十年重現期(警戒)</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color watershed" style="background-color: #95E605; opacity: 0.2;"></div>
+              <div class="legend-text">正常狀態</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
+    <!-- --- 新增：可調整大小的拉桿 --- -->
+    <div id="resizer"></div>
     <div id="ranking">
-      <h2>24小時雨量超過十年重現期之排水區域</h2>
-      <ul id="red-watersheds"></ul>
-      <h2 id="ranking-list-title">24小時累積雨量前十名測站(mm)</h2>
-      <ul id="ranking-list"></ul>
+      <div id="ranking-content">
+        <h2>24小時雨量超過十年重現期之排水區域</h2>
+        <ul id="red-watersheds"></ul>
+        <h2 id="ranking-list-title">24小時累積雨量前十名測站(mm)</h2>
+        <ul id="ranking-list"></ul>
+      </div>
     </div>
   </div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -436,6 +504,7 @@
     let stationPoints = []; // 儲存測站資料
     let watershedLayer; // 集水區圖層
     let top10Stations = []; // 前十名測站
+    let highlightedFeature = null; // << --- 請新增這一行
 
     // 新增：兩個圖層群組，一個用於個別測站，一個用於縣市群聚
     let stationLayerGroup = L.layerGroup(); // 用於個別測站顯示
@@ -512,7 +581,7 @@
       top10Stations = stationPoints.sort((a, b) => b.rain - a.rain).slice(0, 10); // 排序並取前十名
       top10Stations.forEach((station, index) => {
         const li = document.createElement("li");
-        li.innerHTML = `<span class="rank">${index + 1}. ${station.name} (${station.county || ''}${station.town || ''})</span><span class="rain">${station.rain}</span>`;
+        li.innerHTML = `<span class="rank">${index + 1}. ${station.name} (${station.county || ''}${station.town || ''})</span><span class="rain">${Math.round(station.rain)}</span>`;
         li.style.cursor = "pointer";
         // 點擊列表項時，放大地圖並高亮測站
         li.addEventListener("click", () => {
@@ -522,6 +591,7 @@
         rankingList.appendChild(li);
       });
     }
+   
 
     /**
      * 高亮顯示選中的測站。
@@ -529,21 +599,18 @@
      * @param {object} station - 要高亮的測站資料。
      */
     function highlightStation(station) {
-      const zoomThreshold = 11; // 閾值，低於此縮放等級顯示縣市群聚，高於此顯示個別測站
+      clearHighlight(); // 先清除之前的高亮
+
+      const zoomThreshold = 11;
       const currentZoom = map.getZoom();
 
-      // 如果地圖當前縮放等級不足以顯示單個測站，則先放大地圖
       if (currentZoom < zoomThreshold) {
-          map.setView([station.lat, station.lon], 13); // 放大到足以顯示個別測站的級別 (> zoomThreshold)
-          // 由於 setView 會有動畫和圖層重新繪製，需要延遲一下再嘗試高亮
-          // 使用 requestAnimationFrame 確保在下一個繪製幀執行，避免堆疊溢出
+          map.setView([station.lat, station.lon], 13);
           requestAnimationFrame(() => highlightStation(station)); 
-          return; // 第一次呼叫在此結束，等待放大後重試
+          return;
       }
       
-      // 已經在足以顯示個別測站的縮放級別，直接高亮
       stationLayerGroup.eachLayer((layer) => {
-        // 確保是 CircleMarker 並且是目標測站
         if (layer instanceof L.CircleMarker) {
           const layerLatLng = layer.getLatLng();
           if (layerLatLng.lat === station.lat && layerLatLng.lng === station.lon) {
@@ -555,24 +622,27 @@
             layer.setStyle({
               radius: 8,
               weight: 3,
-              color: "#ff0000" // 高亮顏色
+              color: "#ff0000"
             });
             layer.openPopup();
-            // 10秒後恢復原樣
-            setTimeout(() => {
-              layer.setStyle(originalStyle);
-            }, 10000);
-            return; // 找到並高亮後即可返回
+            
+            // 記住當前高亮的圖層和其原始樣式
+            highlightedFeature = { layer: layer, originalStyle: originalStyle };
+            return;
           }
         }
       });
     }
+    
 
     /**
      * 高亮顯示選中的集水區。
      * @param {string} watershedName - 要高亮的集水區名稱。
      */
+    // --- 請用這段程式碼取代舊的 highlightWatershed 函式 ---
     function highlightWatershed(watershedName) {
+      clearHighlight(); // 先清除之前的高亮
+
       watershedLayer.eachFeature((layer) => {
         const feature = layer.feature;
         const areaName = feature.properties?.area_name;
@@ -581,21 +651,25 @@
             weight: layer.options.weight,
             color: layer.options.color
           };
-          // 高亮顯示
           layer.setStyle({
             weight: 4,
             color: "#ff0000"
           });
-          // 放大到集水區範圍
           const bounds = layer.getBounds();
           map.fitBounds(bounds, { padding: [20, 20] });
           layer.openPopup();
-          // 10秒後恢復原樣
-          setTimeout(() => {
-            layer.setStyle(originalStyle);
-          }, 10000);
+
+          // 記住當前高亮的圖層和其原始樣式
+          highlightedFeature = { layer: layer, originalStyle: originalStyle };
         }
       });
+    }
+      // --- 請新增這個函式 ---
+    function clearHighlight() {
+      if (highlightedFeature) {
+        highlightedFeature.layer.setStyle(highlightedFeature.originalStyle);
+        highlightedFeature = null;
+      }
     }
 
     /**
@@ -704,16 +778,17 @@
             const clusterMarker = L.marker([centerLat, centerLon], {
               icon: L.divIcon({
                 className: 'county-cluster-marker',
-                html: stationsInCounty.length, // 顯示該縣市的測站數量
-                iconSize: [40, 40], // 調整群聚圓圈的大小
-                iconAnchor: [20, 20] // 中心點
+                html: `<div>${stationsInCounty.length}測站</div>`, // 顯示該縣市的測站數量
+                iconSize: [50, 50],
+                iconAnchor: [20, 20]
               })
             });
-            clusterMarker.bindPopup(`<b>${countyName}</b><br>測站數量: ${stationsInCounty.length}`);
+
+            clusterMarker.bindTooltip(`<b>${countyName}</b><br>測站數量: ${stationsInCounty.length}`);
             
             // 點擊縣市群聚時，放大地圖並顯示個別測站
             clusterMarker.on('click', function() {
-                map.setView([centerLat, centerLon], zoomThreshold + 2); // 放大到比閾值高2級，確保顯示個別測站
+                map.setView([centerLat, centerLon], zoomThreshold);
             });
 
             countyClusterLayer.addLayer(clusterMarker);
@@ -740,7 +815,7 @@
             })
           });
           
-          marker.bindPopup(`<b>${station.name} (${station.county || ''}${station.town || ''})</b><br>24小時累積雨量：${station.rain} mm`);
+          marker.bindPopup(`<b>${station.name} (${station.county || ''}${station.town || ''})</b><br>24小時累積雨量：${Math.round(station.rain)} mm`);
           stationLayerGroup.addLayer(marker);
           stationLayerGroup.addLayer(label); // 將標籤也添加到測站圖層群組
         });
@@ -838,7 +913,7 @@
             
             // 收集觸發測站的名稱和雨量
             const triggerStations = exceedingStations.map(station => 
-              `${station.name}(${station.rain}mm)`
+              `${station.name}(${Math.round(station.rain)}mm)`
             );
             
             redWatershedsData.push({
@@ -906,6 +981,35 @@
         });
     }
 
+    // --- 可調整大小的面板邏輯 ---
+    const resizer = document.getElementById('resizer');
+    const rankingPanel = document.getElementById('ranking');
+
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        let startX = e.clientX;
+        let startWidth = parseInt(document.defaultView.getComputedStyle(rankingPanel).width, 10);
+
+        function doDrag(e) {
+            if (!isResizing) return;
+            let newWidth = startWidth - (e.clientX - startX);
+            rankingPanel.style.width = newWidth + 'px';
+            map.invalidateSize(); // 通知地圖重新計算大小
+        }
+
+        function stopDrag() {
+            isResizing = false;
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+
+        document.addEventListener('mousemove', doDrag);
+        document.addEventListener('mouseup', stopDrag);
+    });
+
+
     // 監聽地圖縮放事件，以更新測站顯示模式
     map.on('zoomend', updateStationDisplay);
 
@@ -932,6 +1036,14 @@
       setTimeout(() => {
         map.invalidateSize();
       }, 300); 
+    });
+
+    // --- 新增：圖例收合功能 ---
+    const legend = document.getElementById('legend');
+    const legendHeader = legend.querySelector('.legend-header');
+
+    legendHeader.addEventListener('click', () => {
+        legend.classList.toggle('collapsed');
     });
   </script>
 </body>
