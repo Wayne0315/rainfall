@@ -2,47 +2,68 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>農田水利颱洪暴雨24小時即時雨量</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
+    /* 基本佈局和字體 */
     body {
       margin: 0;
       padding: 0;
       display: flex;
       flex-direction: column;
       height: 100vh;
+      font-family: 'Inter', Arial, sans-serif; /* 使用 Inter 字體 */
     }
+
+    /* 頂部標頭樣式 */
     #header {
       height: 60px;
       background: #f8f8f8;
-      display: flex; /* 使用 Flexbox */
+      display: flex;
       align-items: center;
-      justify-content: space-between; /* 將子元素分散在兩端 */
-      padding: 0 20px; /* 增加左右內邊距 */
+      justify-content: space-between;
+      padding: 0 20px;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      font-family: Arial, sans-serif;
+      border-bottom-left-radius: 8px; /* 圓角 */
+      border-bottom-right-radius: 8px; /* 圓角 */
     }
     #header h1 {
       margin: 0;
       font-size: 24px;
       color: #333;
     }
-    /* 新增的樣式：用於小字體的機構名稱 */
     .organization-name {
-      font-size: 14px; /* 設定字體大小 */
-      color: #666; /* 設定顏色 */
-      white-space: nowrap; /* 防止文字換行 */
+      font-size: 14px;
+      color: #666;
+      white-space: nowrap;
     }
+
+    /* 主內容區塊佈局 */
     #main-content {
       display: flex;
-      height: calc(100vh - 60px);
+      flex-grow: 1; /* 讓主內容區塊佔據剩餘高度 */
+      height: calc(100vh - 60px); /* 減去 header 高度 */
     }
+
+    /* 左側 CWA 框架 */
     #cwa-frame {
-      width: 350px;
+      position: relative; /* 用於定位收合按鈕 */
+      width: 350px; /* 初始寬度 */
       height: 100%;
       background: #f8f8f8;
       box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
       overflow: hidden;
+      border-top-right-radius: 8px; /* 圓角 */
+      border-bottom-right-radius: 8px; /* 圓角 */
+      transition: width 0.3s ease-in-out; /* 寬度變化時的平滑過渡 */
+    }
+    #cwa-frame.collapsed {
+      width: 40px; /* 收合後的寬度 */
+    }
+    #cwa-frame.collapsed iframe,
+    #cwa-frame.collapsed .fallback {
+      display: none; /* 收合時隱藏內容 */
     }
     #cwa-frame iframe {
       width: 100%;
@@ -52,8 +73,8 @@
     #cwa-frame .fallback {
       text-align: center;
       padding: 20px;
-      font-family: Arial, sans-serif;
       font-size: 14px;
+      color: #555;
     }
     #cwa-frame .fallback a {
       color: #0066cc;
@@ -62,10 +83,53 @@
     #cwa-frame .fallback a:hover {
       text-decoration: underline;
     }
-    #map {
-      height: 100%;
-      width: calc(100% - 600px); /* 350px 左側 + 250px 右側 */
+
+    /* 收合/展開按鈕樣式 */
+    .toggle-btn {
+      position: absolute;
+      top: 50%;
+      right: -5px; /* 按鈕稍微超出邊界，方便點擊 */
+      transform: translateY(-40%);
+      background-color: #848484;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 5px 10px;
+      min-width: 30px;
+      height: 40px;
+      display: flex;
+      flex-direction: column; /* 將子元素改為垂直排列 */
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      z-index: 10;
+      transition: all 0.3s ease-in-out;
+      font-size: 14px;
+      white-space: nowrap;
     }
+    .toggle-btn:hover {
+      background-color: #0056b3;
+      transform: translateY(-50%) scale(1.1);
+    }
+    .toggle-btn .arrow {
+      font-size: 18px;
+      margin-bottom: 2px; /* 箭頭與文字間距 */
+      line-height: 1;
+    }
+    .toggle-btn .text {
+      font-size: 12px; /* 調整文字大小 */
+      line-height: 1;
+    }
+    
+    /* 中間地圖區塊 */
+    #map {
+      flex-grow: 1;
+      height: 100%;
+      min-width: 400px;
+    }
+
+    /* 右側排名列表 */
     #ranking {
       width: 250px;
       height: 100%;
@@ -73,12 +137,14 @@
       padding: 10px;
       box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
       overflow-y: auto;
-      font-family: Arial, sans-serif;
+      border-top-left-radius: 8px;
+      border-bottom-left-radius: 8px;
     }
     #ranking h2 {
       font-size: 18px;
       margin: 0 0 10px;
       text-align: center;
+      color: #333;
     }
     #ranking ul {
       list-style: none;
@@ -91,6 +157,7 @@
       display: flex;
       justify-content: space-between;
       transition: background-color 0.2s;
+      border-radius: 4px;
     }
     #ranking li:hover {
       background-color: #e8f4f8;
@@ -100,41 +167,57 @@
     }
     #ranking .rank {
       font-weight: bold;
+      color: #555;
     }
     #ranking .rain {
       color: #d63031;
+      font-weight: bold;
     }
     #ranking .watershed {
       color: #900;
-    }
-    .station-label {
-      background: rgba(255, 255, 255, 0.7);
-      border: 1px solid #ccc;
-      border-radius: 3px;
-      padding: 2px 4px;
-      font-size: 12px;
       font-weight: bold;
-      color: black;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-      white-space: nowrap;
     }
-    #label-controls {
-      margin-bottom: 15px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: 5px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-    }
-    #label-controls label {
-      display: block;
-      margin-bottom: 5px;
+    .clickable-watershed {
       cursor: pointer;
     }
-    #label-controls input[type="checkbox"] {
-      margin-right: 5px;
+    .clickable-watershed:hover {
+      background-color: #ffebee;
     }
+
+    /* 測站標籤樣式 (個別測站顯示時) */
+    .station-label {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 3px 6px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #333;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+      opacity: 0.9;
+    }
+
+    /* 縣市群聚標記樣式 */
+    .county-cluster-marker {
+      background-color: rgba(100, 100, 200, 0.8);
+      border-radius: 50%;
+      color: white;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgba(100, 100, 200, 1);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.2s;
+    }
+    .county-cluster-marker:hover {
+        background-color: rgba(70, 70, 180, 0.9);
+        transform: scale(1.1);
+    }
+
+    /* 圖例樣式 */
     .legend {
       position: absolute;
       bottom: 20px;
@@ -143,7 +226,6 @@
       padding: 15px;
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      font-family: Arial, sans-serif;
       font-size: 12px;
       max-width: 200px;
       z-index: 1000;
@@ -194,18 +276,40 @@
       color: #333;
       line-height: 1.2;
     }
-    .clickable-watershed {
-      cursor: pointer;
-    }
-    .clickable-watershed:hover {
-      background-color: #ffebee;
+
+    /* 響應式調整 */
+    @media (max-width: 768px) {
+      #main-content {
+        flex-direction: column;
+      }
+      #cwa-frame, #ranking {
+        width: 100%;
+        height: 300px;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      #map {
+        width: 100%;
+        height: calc(100vh - 60px - 600px);
+        min-height: 300px;
+      }
+      .legend {
+        position: static;
+        margin: 10px auto;
+        width: calc(100% - 40px);
+        max-width: none;
+        box-shadow: none;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      }
     }
   </style>
 </head>
 <body>
   <div id="header">
     <h1>農田水利颱洪暴雨24小時即時雨量</h1>
-    <span class="organization-name">台灣水資源與農業研究院</span> </div>
+    <span class="organization-name">台灣水資源與農業研究院</span>
+  </div>
   <div id="main-content">
     <div id="cwa-frame">
       <iframe src="https://www.cwa.gov.tw/V8/C/P/Rainfall/Rainfall_QZJ.html" title="CWA Rainfall Ranking"></iframe>
@@ -215,6 +319,11 @@
           點此查看中央氣象署雨量排名
         </a>
       </div>
+      <!-- 合併後的收合/展開按鈕 -->
+      <button id="toggleCwaBtn" class="toggle-btn" title="收合氣象署資訊">
+        <span class="arrow">&#9664;</span>
+        <span class="text">收合</span>
+      </button>
     </div>
     <div id="map">
       <div class="legend" id="legend">
@@ -320,10 +429,12 @@
     // 全域變數初始化
     const map = L.map("map").setView([23.5, 121], 8); // 初始化地圖，中心設為台灣，縮放等級8
     let stationPoints = []; // 儲存測站資料
-    let stationLayerGroup = L.layerGroup(); // 測站圖層群組
     let watershedLayer; // 集水區圖層
     let top10Stations = []; // 前十名測站
-    // let watershedData = []; // 這個全域變數可以移除了，因為每次load都會重新建立
+
+    // 新增：兩個圖層群組，一個用於個別測站，一個用於縣市群聚
+    let stationLayerGroup = L.layerGroup(); // 用於個別測站顯示
+    let countyClusterLayer = L.layerGroup(); // 用於縣市群聚顯示
 
     // 添加比例尺
     L.control.scale({
@@ -361,7 +472,11 @@
         opacity: 0.6
       }).addTo(map);
 
-    // 根據雨量值返回對應顏色
+    /**
+     * 根據雨量值返回對應的顏色。
+     * @param {number} rain - 24小時累積雨量 (mm)。
+     * @returns {string} - 對應的顏色代碼。
+     */
     function getColor(rain) {
       // 根據雨量大小返回對應的顏色，雨量越大顏色越深
       return rain > 300 ? "#FFD5FD" :
@@ -383,27 +498,47 @@
                           "#CACACA";
     }
 
-    // 顯示前十名測站排行榜
+    /**
+     * 顯示前十名測站的排行榜。
+     */
     function displayTop10Ranking() {
       const rankingList = document.getElementById("ranking-list");
-      rankingList.innerHTML = "";
-      top10Stations = stationPoints.sort((a, b) => b.rain - a.rain).slice(0, 10);
+      rankingList.innerHTML = ""; // 清空現有列表
+      top10Stations = stationPoints.sort((a, b) => b.rain - a.rain).slice(0, 10); // 排序並取前十名
       top10Stations.forEach((station, index) => {
         const li = document.createElement("li");
         li.innerHTML = `<span class="rank">${index + 1}. ${station.name}</span><span class="rain">${station.rain} mm</span>`;
         li.style.cursor = "pointer";
+        // 點擊列表項時，放大地圖並高亮測站
         li.addEventListener("click", () => {
-          map.setView([station.lat, station.lon], 13);
+          map.setView([station.lat, station.lon], 13); // 放大到測站層級
           highlightStation(station);
         });
         rankingList.appendChild(li);
       });
     }
 
-    // 高亮顯示選中的測站
+    /**
+     * 高亮顯示選中的測站。
+     * 如果地圖縮放等級不足以顯示個別測站，會先放大地圖。
+     * @param {object} station - 要高亮的測站資料。
+     */
     function highlightStation(station) {
-      // 暫時高亮選中的測站，3秒後恢復原樣
+      const zoomThreshold = 11; // 閾值，低於此縮放等級顯示縣市群聚，高於此顯示個別測站
+      const currentZoom = map.getZoom();
+
+      // 如果地圖當前縮放等級不足以顯示單個測站，則先放大地圖
+      if (currentZoom < zoomThreshold) {
+          map.setView([station.lat, station.lon], 13); // 放大到足以顯示個別測站的級別 (> zoomThreshold)
+          // 由於 setView 會有動畫和圖層重新繪製，需要延遲一下再嘗試高亮
+          // 使用 requestAnimationFrame 確保在下一個繪製幀執行，避免堆疊溢出
+          requestAnimationFrame(() => highlightStation(station)); 
+          return; // 第一次呼叫在此結束，等待放大後重試
+      }
+      
+      // 已經在足以顯示個別測站的縮放級別，直接高亮
       stationLayerGroup.eachLayer((layer) => {
+        // 確保是 CircleMarker 並且是目標測站
         if (layer instanceof L.CircleMarker) {
           const layerLatLng = layer.getLatLng();
           if (layerLatLng.lat === station.lat && layerLatLng.lng === station.lon) {
@@ -415,18 +550,23 @@
             layer.setStyle({
               radius: 8,
               weight: 3,
-              color: "#ff0000"
+              color: "#ff0000" // 高亮顏色
             });
             layer.openPopup();
+            // 3秒後恢復原樣
             setTimeout(() => {
               layer.setStyle(originalStyle);
             }, 3000);
+            return; // 找到並高亮後即可返回
           }
         }
       });
     }
 
-    // 高亮顯示選中的集水區
+    /**
+     * 高亮顯示選中的集水區。
+     * @param {string} watershedName - 要高亮的集水區名稱。
+     */
     function highlightWatershed(watershedName) {
       watershedLayer.eachFeature((layer) => {
         const feature = layer.feature;
@@ -453,7 +593,13 @@
       });
     }
 
-    // 使用1公里緩衝區搜尋測站
+    /**
+     * 在集水區邊界緩衝區內搜尋測站。
+     * @param {L.Layer} watershedLayer - 集水區的 Leaflet 圖層。
+     * @param {Array<object>} stations - 所有測站的資料陣列。
+     * @param {number} bufferDistanceMeters - 緩衝區距離 (米)。
+     * @returns {Array<object>} - 在緩衝區內的測站陣列。
+     */
     function getStationsWithinBuffer(watershedLayer, stations, bufferDistanceMeters) {
       return stations.filter(station => {
         const stationLatLng = L.latLng(station.lat, station.lon);
@@ -466,7 +612,12 @@
       });
     }
 
-    // 計算點到多邊形邊界矩形的最短距離
+    /**
+     * 計算點到多邊形邊界矩形的最短距離 (近似值)。
+     * @param {L.LatLng} point - 點的經緯度。
+     * @param {L.Layer} polygon - 多邊形的 Leaflet 圖層。
+     * @returns {number} - 點到多邊形邊界矩形的最短距離 (米)。
+     */
     function getMinDistanceToPolygonBounds(point, polygon) {
       const bounds = polygon.getBounds();
       
@@ -501,30 +652,80 @@
         lngDistance = (west - lng) * 111000 * Math.cos(lat * Math.PI / 180);
       }
       
-      // 返回總距離
+      // 返回總距離 (勾股定理)
       return Math.sqrt(latDistance * latDistance + lngDistance * lngDistance);
     }
 
-    // 更新測站顯示
+    /**
+     * 根據地圖縮放等級，顯示縣市群聚或個別測站。
+     */
     function updateStationDisplay() {
-      // 根據地圖縮放等級顯示或隱藏測站標籤
-      const zoomThreshold = 11;
+      const zoomThreshold = 11; // 閾值，低於此縮放等級顯示縣市群聚，高於此顯示個別測站
       const currentZoom = map.getZoom();
-      if (!map.hasLayer(stationLayerGroup)) {
-        return;
-      }
+
+      // 清除所有測站相關圖層，準備重新繪製
       stationLayerGroup.clearLayers();
-      stationPoints.forEach((station) => {
-        const marker = L.circleMarker([station.lat, station.lon], {
-          radius: 4.5,
-          fillColor: getColor(station.rain),
-          color: "#333",
-          weight: 1,
-          fillOpacity: 0.8,
+      countyClusterLayer.clearLayers();
+      
+      // 確保兩個圖層都被移除了地圖，待會根據條件重新添加
+      map.removeLayer(stationLayerGroup);
+      map.removeLayer(countyClusterLayer);
+
+      if (currentZoom < zoomThreshold) {
+        // 顯示縣市群聚
+        const countyStations = {};
+        stationPoints.forEach(station => {
+          // 確保 station.county 存在，否則歸類到「未知縣市」
+          const countyName = station.county || '未知縣市'; 
+          if (!countyStations[countyName]) {
+            countyStations[countyName] = [];
+          }
+          countyStations[countyName].push(station);
         });
-        marker.bindPopup(`<b>${station.name}</b><br>24小時累積雨量：${station.rain} mm`);
-        stationLayerGroup.addLayer(marker);
-        if (currentZoom >= zoomThreshold) {
+
+        for (const countyName in countyStations) {
+          const stationsInCounty = countyStations[countyName];
+          if (stationsInCounty.length > 0) {
+            // 計算縣市群聚的中心點 (取所有測站的平均經緯度)
+            let sumLat = 0;
+            let sumLon = 0;
+            stationsInCounty.forEach(s => {
+              sumLat += s.lat;
+              sumLon += s.lon;
+            });
+            const centerLat = sumLat / stationsInCounty.length;
+            const centerLon = sumLon / stationsInCounty.length;
+
+            const clusterMarker = L.marker([centerLat, centerLon], {
+              icon: L.divIcon({
+                className: 'county-cluster-marker',
+                html: stationsInCounty.length, // 顯示該縣市的測站數量
+                iconSize: [40, 40], // 調整群聚圓圈的大小
+                iconAnchor: [20, 20] // 中心點
+              })
+            });
+            clusterMarker.bindPopup(`<b>${countyName}</b><br>測站數量: ${stationsInCounty.length}`);
+            
+            // 點擊縣市群聚時，放大地圖並顯示個別測站
+            clusterMarker.on('click', function() {
+                map.setView([centerLat, centerLon], zoomThreshold + 2); // 放大到比閾值高2級，確保顯示個別測站
+            });
+
+            countyClusterLayer.addLayer(clusterMarker);
+          }
+        }
+        countyClusterLayer.addTo(map); // 將縣市群聚圖層添加到地圖
+      } else {
+        // 顯示個別測站
+        stationPoints.forEach((station) => {
+          const marker = L.circleMarker([station.lat, station.lon], {
+            radius: 4.5,
+            fillColor: getColor(station.rain),
+            color: "#333",
+            weight: 1,
+            fillOpacity: 0.8,
+          });
+          // 顯示測站名稱標籤
           const label = L.marker([station.lat, station.lon], {
             icon: L.divIcon({
               className: 'station-label',
@@ -533,15 +734,22 @@
               iconAnchor: [0, -10]
             })
           });
-          stationLayerGroup.addLayer(label);
-        }
-      });
+          
+          marker.bindPopup(`<b>${station.name} (${station.county || ''})</b><br>24小時累積雨量：${station.rain} mm`);
+          stationLayerGroup.addLayer(marker);
+          stationLayerGroup.addLayer(label); // 將標籤也添加到測站圖層群組
+        });
+        stationLayerGroup.addTo(map); // 將個別測站圖層添加到地圖
+      }
     }
 
-    // 顯示超過十年重現期的集水區
+    /**
+     * 顯示超過十年重現期的排水區域列表。
+     * @param {Array<object>} redWatershedsData - 超過十年重現期的集水區資料陣列。
+     */
     function displayRedWatersheds(redWatershedsData) {
       const redWatershedsList = document.getElementById("red-watersheds");
-      redWatershedsList.innerHTML = ""; // 關鍵修正：在每次更新前清空列表
+      redWatershedsList.innerHTML = ""; // 清空現有列表
       redWatershedsData.forEach((watershedInfo) => {
         const li = document.createElement("li");
         li.innerHTML = `
@@ -561,7 +769,9 @@
       });
     }
 
-    // 載入集水區資料
+    /**
+     * 載入集水區資料並添加到地圖。
+     */
     function loadWatersheds() {
       // 如果圖層已經存在，則先移除，防止重複添加
       if (watershedLayer) { 
@@ -634,32 +844,24 @@
         });
 
         displayRedWatersheds(redWatershedsData); // 更新顯示列表
-        stationLayerGroup.addTo(map);
-        stationLayerGroup.bringToFront();
-        updateStationDisplay();
+        updateStationDisplay(); // 確保測站顯示邏輯被觸發
       });
 
+      // 定義圖層控制
       const overlayMaps = {
-        "雨量測站": stationLayerGroup,
+        "個別雨量測站": stationLayerGroup, // 這個現在控制的是個別測站層
+        "縣市雨量群聚": countyClusterLayer, // 新增縣市群聚作為可切換圖層
         "區域排水": watershedLayer,
         "縣市界": cityLayer,
       };
 
+      // 將圖層控制添加到地圖
       L.control.layers(baseMaps, overlayMaps, { position: "topright" }).addTo(map);
-
-      map.on('overlayadd overlayremove', function(e) {
-        if (e.name === '雨量測站') {
-          if (e.type === 'overlayadd') {
-            updateStationDisplay();
-          }
-          if (e.type === 'overlayremove') {
-            stationLayerGroup.clearLayers();
-          }
-        }
-      });
     }
 
-    // 載入雨量測站資料
+    /**
+     * 從中央氣象署 API 載入雨量測站資料。
+     */
     function loadStationData() {
       // 從中央氣象署API獲取24小時雨量資料
       fetch("https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWA-3136E89E-8A4C-40CB-BCF2-2C1D2E78AF8D&RainfallElement=Past24hr")
@@ -671,12 +873,13 @@
             const lat = parseFloat(coord?.StationLatitude);
             const lon = parseFloat(coord?.StationLongitude);
             const rain = parseFloat(station.RainfallElement?.Past24hr?.Precipitation);
+            const county = station.LocationName; // 假設 LocationName 就是縣市名稱
+
             if (!isNaN(lat) && !isNaN(lon) && !isNaN(rain)) {
-              stationPoints.push({ lat, lon, rain, name: station.StationName });
+              stationPoints.push({ lat, lon, rain, name: station.StationName, county: county });
             }
           });
           displayTop10Ranking();
-          updateStationDisplay();
           // 確保在載入測站資料後才載入集水區，因為集水區的渲染依賴測站資料
           loadWatersheds(); 
         })
@@ -687,11 +890,33 @@
         });
     }
 
-    // 監聽地圖縮放事件
+    // 監聽地圖縮放事件，以更新測站顯示模式
     map.on('zoomend', updateStationDisplay);
 
     // 初始化應用程式
     loadStationData();
+
+    // CWA 框架收合/展開功能
+    const cwaFrame = document.getElementById('cwa-frame');
+    const toggleCwaBtn = document.getElementById('toggleCwaBtn');
+
+    toggleCwaBtn.addEventListener('click', () => {
+      cwaFrame.classList.toggle('collapsed');
+      
+      const isCollapsed = cwaFrame.classList.contains('collapsed');
+      if (isCollapsed) {
+        toggleCwaBtn.innerHTML = '<span class="arrow">&#9654;</span><span class="text">展開</span>'; // 右箭頭+展開
+        toggleCwaBtn.title = '展開氣象署資訊';
+      } else {
+        toggleCwaBtn.innerHTML = '<span class="arrow">&#9664;</span><span class="text">收合</span>'; // 左箭頭+收合
+        toggleCwaBtn.title = '收合氣象署資訊';
+      }
+
+      // 在過渡動畫完成後，通知 Leaflet 地圖重新計算大小
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 300); 
+    });
   </script>
 </body>
 </html>
