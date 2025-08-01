@@ -128,6 +128,11 @@
       height: 100%;
       min-width: 400px;
     }
+    #ranking #ranking-list-title {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+    }  
 
     /* 右側排名列表 */
     #ranking {
@@ -200,14 +205,14 @@
 
     /* 縣市群聚標記樣式 */
     .county-cluster-marker {
-      background-color: rgba(100, 100, 200, 0.8);
+      background-color: rgba(162, 162, 162, 0.8);
       border-radius: 50%;
       color: white;
       font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 2px solid rgba(100, 100, 200, 1);
+      border: 2px solid rgb(243, 243, 243);
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
       cursor: pointer;
       transition: background-color 0.2s, transform 0.2s;
@@ -332,7 +337,7 @@
           <h4>24小時累積雨量 (mm)</h4>
           <div class="legend-item">
             <div class="legend-color" style="background-color: #FFD5FD;"></div>
-            <div class="legend-text">> 300</div>
+            <div class="legend-text"> 300</div>
           </div>
           <div class="legend-item">
             <div class="legend-color" style="background-color: #FF38FB;"></div>
@@ -396,7 +401,7 @@
           </div>
           <div class="legend-item">
             <div class="legend-color" style="background-color: #CACACA;"></div>
-            <div class="legend-text">< 1</div>
+            <div class="legend-text"> 1</div>
           </div>
         </div>
         <div class="legend-section">
@@ -419,7 +424,7 @@
     <div id="ranking">
       <h2>24小時雨量超過十年重現期之排水區域</h2>
       <ul id="red-watersheds"></ul>
-      <h2>24小時累積雨量前十名測站</h2>
+      <h2 id="ranking-list-title">24小時累積雨量前十名測站(mm)</h2>
       <ul id="ranking-list"></ul>
     </div>
   </div>
@@ -440,7 +445,7 @@
     L.control.scale({
       position: 'bottomleft',
       imperial: false,
-      maxWidth: 150
+      maxWidth: 200
     }).addTo(map);
 
     // 定義底圖選項
@@ -451,7 +456,7 @@
       "OpenStreetMap": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors"
       }),
-      "國土測繪中心通用版電子地圖": L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}.png", {
+      "臺灣通用電子地圖": L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}.png", {
         attribution: "© 國土測繪中心"
       }),
       "國土測繪中心正射影像": L.tileLayer("https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg", {
@@ -507,7 +512,7 @@
       top10Stations = stationPoints.sort((a, b) => b.rain - a.rain).slice(0, 10); // 排序並取前十名
       top10Stations.forEach((station, index) => {
         const li = document.createElement("li");
-        li.innerHTML = `<span class="rank">${index + 1}. ${station.name}</span><span class="rain">${station.rain} mm</span>`;
+        li.innerHTML = `<span class="rank">${index + 1}. ${station.name} (${station.county || ''}${station.town || ''})</span><span class="rain">${station.rain}</span>`;
         li.style.cursor = "pointer";
         // 點擊列表項時，放大地圖並高亮測站
         li.addEventListener("click", () => {
@@ -553,10 +558,10 @@
               color: "#ff0000" // 高亮顏色
             });
             layer.openPopup();
-            // 3秒後恢復原樣
+            // 10秒後恢復原樣
             setTimeout(() => {
               layer.setStyle(originalStyle);
-            }, 3000);
+            }, 10000);
             return; // 找到並高亮後即可返回
           }
         }
@@ -585,10 +590,10 @@
           const bounds = layer.getBounds();
           map.fitBounds(bounds, { padding: [20, 20] });
           layer.openPopup();
-          // 3秒後恢復原樣
+          // 10秒後恢復原樣
           setTimeout(() => {
             layer.setStyle(originalStyle);
-          }, 3000);
+          }, 10000);
         }
       });
     }
@@ -735,7 +740,7 @@
             })
           });
           
-          marker.bindPopup(`<b>${station.name} (${station.county || ''})</b><br>24小時累積雨量：${station.rain} mm`);
+          marker.bindPopup(`<b>${station.name} (${station.county || ''}${station.town || ''})</b><br>24小時累積雨量：${station.rain} mm`);
           stationLayerGroup.addLayer(marker);
           stationLayerGroup.addLayer(label); // 將標籤也添加到測站圖層群組
         });
@@ -750,24 +755,34 @@
     function displayRedWatersheds(redWatershedsData) {
       const redWatershedsList = document.getElementById("red-watersheds");
       redWatershedsList.innerHTML = ""; // 清空現有列表
+
+    // 如果沒有任何資料，就顯示"無"並結束函式
+      if (redWatershedsData.length === 0) {
+          redWatershedsList.innerHTML = '<li>無</li>';
+          return; 
+      }
+
+    // 如果有資料，才執行迴圈來顯示列表
       redWatershedsData.forEach((watershedInfo) => {
-        const li = document.createElement("li");
-        li.innerHTML = `
+          const li = document.createElement("li");
+          li.innerHTML = `
           <div>
-            <span class="watershed">${watershedInfo.name}</span>
-            <div style="font-size: 11px; color: #666; margin-top: 2px;">
+              <span class="watershed">${watershedInfo.name}</span>
+              <div style="font-size: 11px; color: #666; margin-top: 2px;">
               觸發測站: ${watershedInfo.triggerStations.join(', ')}
-            </div>
+              </div>
           </div>
-        `;
-        li.className = "clickable-watershed";
-        li.style.cursor = "pointer";
-        li.addEventListener("click", () => {
+          `;
+          li.className = "clickable-watershed";
+          li.style.cursor = "pointer";
+          li.addEventListener("click", () => {
           highlightWatershed(watershedInfo.name);
-        });
-        redWatershedsList.appendChild(li);
+          });
+          redWatershedsList.appendChild(li);
       });
     }
+
+
 
     /**
      * 載入集水區資料並添加到地圖。
@@ -873,10 +888,11 @@
             const lat = parseFloat(coord?.StationLatitude);
             const lon = parseFloat(coord?.StationLongitude);
             const rain = parseFloat(station.RainfallElement?.Past24hr?.Precipitation);
-            const county = station.LocationName; // 假設 LocationName 就是縣市名稱
+            const county = station.GeoInfo?.CountyName; 
+            const town = station.GeoInfo?.TownName
 
             if (!isNaN(lat) && !isNaN(lon) && !isNaN(rain)) {
-              stationPoints.push({ lat, lon, rain, name: station.StationName, county: county });
+              stationPoints.push({ lat, lon, rain, name: station.StationName, county, town });
             }
           });
           displayTop10Ranking();
