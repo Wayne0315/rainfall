@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>農田水利颱洪暴雨24小時即時雨量</title>
+  <title>農田水利颱洪暴雨24小時即時雨量圖台</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     /* 基本佈局和字體 */
@@ -339,6 +339,17 @@
 
     /* 響應式調整 */
   @media (max-width: 768px) {
+
+        /* --- RWD 模式下，調整區塊顯示順序 --- */
+      #map {
+        order: 1; /* 1. 地圖 */
+      }
+      #ranking {
+        order: 2; /* 2. 排名 */
+      }
+      #cwa-frame {
+        order: 3; /* 3. CWA 資訊 */
+      }
     /* 允許頁面在手機上滾動，並加上一個淺灰色底，讓卡片效果更明顯 */
     body {
       overflow: auto;
@@ -353,7 +364,7 @@
 
     /* 【主要修改處】為所有區塊設定統一的外觀和間距 */
     #cwa-frame, #map, #ranking {
-      width: 96% !important; /* 寬度設為96%，並用!important覆蓋JS的行內樣式 */
+      width: 90% !important; /* 寬度設為96%，並用!important覆蓋JS的行內樣式 */
       max-width: 680px; /* 在較大的平板上，避免區塊過寬 */
       margin: 0 auto 15px auto; /* 上下邊距15px，左右自動 (實現水平置中) */
       
@@ -366,8 +377,11 @@
     }
 
     /* 針對不同區塊設定各自的高度 */
-    #cwa-frame, #ranking {
+    #cwa-frame {
       height: 300px;
+    }
+    #ranking{
+      height:auto;
     }
     #map {
       height: 400px;
@@ -398,7 +412,7 @@
 </head>
 <body>
   <div id="header">
-    <h1>農田水利颱洪暴雨24小時即時雨量</h1>
+    <h1>農田水利颱洪暴雨24小時即時雨量圖台</h1>
     <span class="organization-name">台灣水資源與農業研究院</span>
   </div>
   <div id="main-content">
