@@ -351,6 +351,10 @@
     /* 響應式調整 */
     @media (max-width: 768px) {
 
+      /* 在手機版隱藏 CWA 資訊框的收合按鈕 */
+     #toggleCwaBtn {
+         display: none;
+      }
       /* --- RWD 模式下，調整區塊顯示順序 --- */
       #map-container { /* 修改：排序套用至容器 */
         order: 1; /* 1. 地圖 */
