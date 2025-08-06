@@ -338,6 +338,8 @@
       const redWatershedsList = document.getElementById("red-watersheds");
       redWatershedsList.innerHTML = ""; // 清空現有列表
 
+      console.log("收到的超標排水區域資料:", redWatershedsData);
+
     // 如果沒有任何資料，就顯示"無"並結束函式
       if (redWatershedsData.length === 0) {
           redWatershedsList.innerHTML = '<li>無</li>';
@@ -400,9 +402,11 @@
 
       watershedLayer.on("load", () => {
         console.log("2. 集水區圖資載入完成！");
-        const redWatershedsData = []; 
+        const redWatershedsData = [];
+        let featureCount = 0; // 1. 在這裡宣告一個計數器
         
         watershedLayer.eachFeature((layer) => {
+          featureCount++; // 2. 每處理一個集水區，計數器就 +1
           const feature = layer.feature;
           const props = feature.properties;
 
@@ -488,7 +492,7 @@
           });
         });
 
-        console.log(`3. 完成 ${watershedLayer.getLayers().length} 個集水區的顏色分析。`);
+        console.log(`3. 完成 ${featureCount} 個集水區的顏色分析。`);
         displayRedWatersheds(redWatershedsData); 
         updateStationDisplay(); 
       });
