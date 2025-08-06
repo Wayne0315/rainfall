@@ -570,8 +570,21 @@
     // 監聽地圖縮放事件，以更新測站顯示模式
     map.on('zoomend', updateStationDisplay);
 
+    function handleResize() {
+         updateStationDisplay(); // 更新測站顯示
+
+        // ---【⭐新增邏輯】---
+        if (window.innerWidth <= 768) {
+            // 如果是手機版，強制移除 collapsed class，確保資訊框總是展開的
+            cwaFrame.classList.remove('collapsed');
+        }
+    }   
+    // 監聽視窗大小變化事件，以實現更完整的 RWD 效果
+    window.addEventListener('resize', updateStationDisplay);
+
     // 初始化應用程式
     loadStationData();
+    handleResize(); //【⭐新增】在初次載入時也執行一次，確保初始狀態正確
 
     // CWA 框架收合/展開功能
     const cwaFrame = document.getElementById('cwa-frame');
