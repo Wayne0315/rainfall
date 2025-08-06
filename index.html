@@ -4,444 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>農田水利颱洪暴雨24小時即時雨量圖台</title>
+  <!-- 外部 CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    /* 基本佈局和字體 */
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      font-family: 'Inter', Arial, sans-serif; /* 使用 Inter 字體 */
-      overflow: hidden; /* 防止拖曳時出現滾動條 */
-    }
-
-    /* 頂部標頭樣式 */
-    #header {
-      height: 60px;
-      background: #f8f8f8;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      border-bottom-left-radius: 8px; /* 圓角 */
-      border-bottom-right-radius: 8px; /* 圓角 */
-      flex-shrink: 0;
-    }
-    #header h1 {
-      margin: 0;
-      font-size: 24px;
-      color: #333;
-    }
-    .organization-name {
-      font-size: 14px;
-      color: #666;
-      white-space: nowrap;
-    }
-
-    /* 主內容區塊佈局 */
-    #main-content {
-      display: flex;
-      flex-grow: 1; /* 讓主內容區塊佔據剩餘高度 */
-      height: calc(100vh - 60px); /* 減去 header 高度 */
-    }
-
-    /* 左側 CWA 框架 */
-    #cwa-frame {
-      position: relative; /* 用於定位收合按鈕 */
-      width: 350px; /* 初始寬度 */
-      height: 100%;
-      background: #f8f8f8;
-      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-      border-top-right-radius: 8px; /* 圓角 */
-      border-bottom-right-radius: 8px; /* 圓角 */
-      transition: width 0.3s ease-in-out; /* 寬度變化時的平滑過渡 */
-      flex-shrink: 0;
-    }
-    #cwa-frame.collapsed {
-      width: 40px; /* 收合後的寬度 */
-    }
-    #cwa-frame.collapsed iframe,
-    #cwa-frame.collapsed .fallback {
-      display: none; /* 收合時隱藏內容 */
-    }
-    #cwa-frame iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    #cwa-frame .fallback {
-      text-align: center;
-      padding: 20px;
-      font-size: 14px;
-      color: #555;
-    }
-    #cwa-frame .fallback a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-    #cwa-frame .fallback a:hover {
-      text-decoration: underline;
-    }
-
-    /* 收合/展開按鈕樣式 */
-    .toggle-btn {
-      position: absolute;
-      top: 50%;
-      right: -5px; /* 按鈕稍微超出邊界，方便點擊 */
-      transform: translateY(-40%);
-      background-color: #848484;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 5px 10px;
-      min-width: 30px;
-      height: 40px;
-      display: flex;
-      flex-direction: column; /* 將子元素改為垂直排列 */
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-      z-index: 10;
-      transition: all 0.3s ease-in-out;
-      font-size: 14px;
-      white-space: nowrap;
-    }
-    .toggle-btn:hover {
-      background-color: #0056b3;
-      transform: translateY(-50%) scale(1.1);
-    }
-    .toggle-btn .arrow {
-      font-size: 18px;
-      margin-bottom: 2px; /* 箭頭與文字間距 */
-      line-height: 1;
-    }
-    .toggle-btn .text {
-      font-size: 12px; /* 調整文字大小 */
-      line-height: 1;
-    }
-    
-    /* ---【修改處 1】--- */
-    /* 中間地圖區塊 */
-    #map-container { /* 新增：地圖與圖例的容器 */
-      position: relative; /* 作為圖例絕對定位的基準 */
-      flex-grow: 1;
-      height: 100%;
-    }
-
-    #map {
-      height: 100%;
-      width: 100%; /* 確保地圖填滿容器 */
-      background-color: #f0f2f5; /* 給地圖一個背景色，避免載入時閃爍 */
-    }
-    /* ---【修改結束】--- */
-
-
-    /* --- 新增：可調整大小的拉桿 --- */
-    #resizer {
-        width: 5px;
-        background: #ccc;
-        cursor: col-resize; /* 滑鼠游標變為左右箭頭 */
-        height: 100%;
-        flex-shrink: 0;
-    }
-
-    /* 右側排名列表 */
-    #ranking {
-      width: 280px; /* 初始寬度 */
-      min-width: 200px; /* 最小寬度 */
-      max-width: 500px; /* 最大寬度 */
-      height: 100%;
-      background: #f8f8f8;
-      box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
-      overflow-y: auto;
-      border-top-left-radius: 8px;
-      border-bottom-left-radius: 8px;
-      flex-shrink: 0;
-    }
-    #ranking-content {
-        padding: 10px;
-    }
-    #ranking h2 {
-      font-size: 18px;
-      margin: 0 0 10px;
-      text-align: center;
-      color: #333;
-    }
-    #ranking #ranking-list-title {
-        margin-top: 5px;
-        padding-top: 5px;
-        border-top: 1px solid #ddd;
-    }
-    #ranking ul {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 20px 0;
-    }
-    #ranking li {
-      padding: 8px;
-      border-bottom: 1px solid #ddd;
-      display: flex;
-      justify-content: space-between;
-      transition: background-color 0.2s;
-      border-radius: 4px;
-    }
-    #ranking li:hover {
-      background-color: #e8f4f8;
-    }
-    #ranking li:last-child {
-      border-bottom: none;
-    }
-    #ranking .rank {
-      font-weight: bold;
-      color: #555;
-    }
-    #ranking .rain {
-      color: #d63031;
-      font-weight: bold;
-    }
-    #ranking .watershed {
-      color: #900;
-      font-weight: bold;
-    }
-    .clickable-watershed {
-      cursor: pointer;
-    }
-    .clickable-watershed:hover {
-      background-color: #ffebee;
-    }
-
-    /* 測站標籤樣式 (個別測站顯示時) */
-    .station-label {
-      background: rgba(255, 255, 255, 0.8);
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      padding: 3px 6px;
-      font-size: 12px;
-      font-weight: bold;
-      color: #333;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-      white-space: nowrap;
-      opacity: 0.9;
-    }
-
-    /* 縣市群聚標記樣式 */
-
-    .county-cluster-marker {
-      background-color: rgba(162, 162, 162, 0.8);
-      border-radius: 50%;
-      color: white;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid rgb(243, 243, 243);
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-      cursor: pointer;
-      transition: background-color 0.2s, transform 0.2s;
-    }
-    .county-cluster-marker:hover {
-        background-color: rgba(8, 144, 255, 0.9);
-        transform: scale(1.1);
-    }
-
-    .county-cluster-marker div:first-child {
-      font-size: 13px;
-    }
-    .county-cluster-marker div:last-child {
-      font-size: 11px;
-    }
-
-    /* --- 可收合圖例樣式 --- */
-    .legend {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      font-size: 12px;
-      max-width: 200px;
-      z-index: 1000;
-      border: 1px solid #ddd;
-    }
-    .legend-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-    }
-    .legend-header h3 {
-      font-size: 14px;
-      font-weight: bold;
-      color: #333;
-      margin: 0;
-    }
-    .legend-toggle {
-      font-size: 24px;
-      font-weight: bold;
-      line-height: 1;
-      user-select: none; /* 防止點擊時選取文字 */
-    }
-    .legend-toggle::before {
-      content: "−"; /* 預設為打開狀態的減號 */
-    }
-    .legend.collapsed .legend-toggle::before {
-      content: "+"; /* 收合狀態的加號 */
-    }
-    .legend-content {
-      max-height: 550px; /* 設定一個足夠大的高度 */
-      overflow: hidden;
-      transition: max-height 0.3s ease-out, padding-top 0.3s ease-out, margin-top 0.3s ease-out;
-      margin-top: 10px;
-      border-top: 1px solid #ddd;
-      padding-top: 10px;
-    }
-    .legend.collapsed .legend-content {
-      max-height: 0;
-      margin-top: 0;
-      padding-top: 0;
-      border-top: none;
-    }
-    .legend-section {
-      margin-bottom: 15px;
-    }
-    .legend-section:last-child {
-      margin-bottom: 0;
-    }
-    .legend-section h4 {
-      margin: 0 0 8px 0;
-      font-size: 12px;
-      font-weight: bold;
-      color: #555;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      margin-bottom: 3px;
-    }
-    .legend-item:last-child {
-      margin-bottom: 0;
-    }
-    .legend-color {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 1px solid #333;
-      margin-right: 8px;
-      flex-shrink: 0;
-    }
-    .legend-color.watershed {
-      border-radius: 3px;
-      border: 1px solid #666;
-    }
-    .legend-text {
-      font-size: 11px;
-      color: #333;
-      line-height: 1.2;
-    }
-
-
-    /* 響應式調整 */
-    @media (max-width: 768px) {
-
-      /* --- RWD 模式下，調整區塊顯示順序 --- */
-      #map-container { /* 修改：排序套用至容器 */
-        order: 1; /* 1. 地圖 */
-      }
-      #ranking {
-        order: 2; /* 2. 排名 */
-      }
-      #cwa-frame {
-        order: 3; /* 3. CWA 資訊 */
-      }
-      /* 允許頁面在手機上滾動，並加上一個淺灰色底，讓卡片效果更明顯 */
-      body {
-        overflow: auto;
-        background-color: #f0f2f5; 
-      }
-
-      #header {
-        height: auto;
-        min-height: 60px;
-        flex-direction: column; 
-        justify-content: center;
-        padding: 10px 15px;
-        text-align: center;
-      }
-
-      #header h1 {
-          font-size: 16px;
-          margin-bottom: 4px;
-          line-height: 1.3;
-      }
-
-      #header .organization-name {
-          font-size: 12px;
-      }
-
-      #main-content {
-        flex-direction: column;
-        height: auto; /* 讓內容決定整體高度 */
-        padding-top: 15px; /* 讓第一個區塊和頂部也有些間距 */
-      }
-
-      /* ---【修改處 2】--- */
-      /* 為所有區塊設定統一的外觀和間距 */
-      #cwa-frame, #map-container, #ranking { /* 將 #map 改為 #map-container */
-        width: 90% !important; /* 寬度設為90%，並用!important覆蓋JS的行內樣式 */
-        max-width: 680px; /* 在較大的平板上，避免區塊過寬 */
-        margin: 0 auto 15px auto; /* 上下邊距15px，左右自動 (實現水平置中) */
-        
-        border-radius: 8px; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-        
-        flex-shrink: 0;
-        max-width: none;
-      }
-
-      /* 針對不同區塊設定各自的高度 */
-      #cwa-frame {
-        height:400px;
-      }
-      #ranking{
-        height:auto;
-      }
-      #map-container { /* 新增：手機版容器高度自動 */
-        height: auto;
-      }
-      #map { /* 新增：手機版地圖高度 */
-        height: 600px;
-      }
-
-      /* 最後一個區塊下方也保留一些空間，讓頁面底部不擁擠 */
-      #ranking {
-        margin-bottom: 15px;
-      }
-      
-      #resizer {
-          display: none; /* 手機版隱藏拉桿 */
-      }
-
-      .legend {
-        position: static; /* 這條規則現在可以正常運作了 */
-        margin: 10px auto;
-        width: calc(100% - 40px);
-        max-width: none;
-        box-shadow: none;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-      }
-      /* ---【修改結束】--- */
-    }
-
-
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="header">
@@ -464,123 +29,122 @@
       </button>
     </div>
     
-    <!-- ---【修改處 3】--- -->
-    <!-- 建立 map-container 來包裝地圖和圖例 -->
     <div id="map-container">
       <div id="map"></div>
-      <!-- 將圖例移至 map-container 內，與 map 同級 -->
       <div class="legend" id="legend">
         <div class="legend-header">
           <h3>圖例</h3>
           <span class="legend-toggle"></span>
         </div>
         <div class="legend-content">
-          <div class="legend-section">
-            <h4>24小時累積雨量 (mm)</h4>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #FFD5FD;"></div>
-              <div class="legend-text"> > 300</div>
+          <div class="legend-columns">
+            <div class="legend-section">
+              <h4>24小時累積雨量 (mm)</h4>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #FFD5FD;"></div>
+                <div class="legend-text"> > 300</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #FF38FB;"></div>
+                <div class="legend-text">200-300</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #DB2CD1;"></div>
+                <div class="legend-text">150-200</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #A920A2;"></div>
+                <div class="legend-text">130-150</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #AA1801;"></div>
+                <div class="legend-text">110-130</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #DB2204;"></div>
+                <div class="legend-text">90-110</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #FF2A08;"></div>
+                <div class="legend-text">70-90</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #FFA71F;"></div>
+                <div class="legend-text">50-70</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #FFD328;"></div>
+                <div class="legend-text">40-50</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #FEFD31;"></div>
+                <div class="legend-text">30-40</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #02FA30;"></div>
+                <div class="legend-text">20-30</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #27A41C;"></div>
+                <div class="legend-text">15-20</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #0177FD;"></div>
+                <div class="legend-text">10-15</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #00A5FE;"></div>
+                <div class="legend-text">6-10</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #01D2FD;"></div>
+                <div class="legend-text">2-6</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #9EFDFF;"></div>
+                <div class="legend-text">1-2</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background-color: #CACACA;"></div>
+                <div class="legend-text"> &lt; 1</div>
+              </div>
             </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #FF38FB;"></div>
-              <div class="legend-text">200-300</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #DB2CD1;"></div>
-              <div class="legend-text">150-200</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #A920A2;"></div>
-              <div class="legend-text">130-150</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #AA1801;"></div>
-              <div class="legend-text">110-130</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #DB2204;"></div>
-              <div class="legend-text">90-110</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #FF2A08;"></div>
-              <div class="legend-text">70-90</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #FFA71F;"></div>
-              <div class="legend-text">50-70</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #FFD328;"></div>
-              <div class="legend-text">40-50</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #FEFD31;"></div>
-              <div class="legend-text">30-40</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #02FA30;"></div>
-              <div class="legend-text">20-30</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #27A41C;"></div>
-              <div class="legend-text">15-20</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #0177FD;"></div>
-              <div class="legend-text">10-15</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #00A5FE;"></div>
-              <div class="legend-text">6-10</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #01D2FD;"></div>
-              <div class="legend-text">2-6</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #9EFDFF;"></div>
-              <div class="legend-text">1-2</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #CACACA;"></div>
-              <div class="legend-text"> < 1</div>
-            </div>
-          </div>
-          <div class="legend-section">
-            <h4>區域排水狀態</h4>
-            <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #8B0000; opacity: 0.6;"></div>
-              <div class="legend-text">雨量超過100年重現期</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #B22222; opacity: 0.55;"></div>
-              <div class="legend-text">雨量超過50年重現期</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #DC143C; opacity: 0.5;"></div>
-              <div class="legend-text">雨量超過25年重現期</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #FF4500; opacity: 0.45;"></div>
-              <div class="legend-text">雨量超過10年重現期(致災)</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #FF8C00; opacity: 0.4;"></div>
-              <div class="legend-text">雨量超過5年重現期(警戒)</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #fff050; opacity: 0.4;"></div>
-              <div class="legend-text">雨量超過2年重現期</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #95E605; opacity: 0.2;"></div>
-              <div class="legend-text">正常</div>
+
+            <div class="legend-section">
+              <h4>區域排水狀態</h4>
+              <div class="legend-item">
+                <div class="legend-color watershed" style="background-color: #8B0000; opacity: 0.6;"></div>
+                <div class="legend-text">雨量超過100年重現期</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color watershed" style="background-color: #B22222; opacity: 0.55;"></div>
+                <div class="legend-text">雨量超過50年重現期</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color watershed" style="background-color: #DC143C; opacity: 0.5;"></div>
+                <div class="legend-text">雨量超過25年重現期</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color watershed" style="background-color: #FF4500; opacity: 0.45;"></div>
+                <div class="legend-text">雨量超過10年重現期(致災)</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color watershed" style="background-color: #FF8C00; opacity: 0.4;"></div>
+                <div class="legend-text">雨量超過5年重現期(警戒)</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color watershed" style="background-color: #fff050; opacity: 0.4;"></div>
+                <div class="legend-text">雨量超過2年重現期</div>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color watershed" style="background-color: #95E605; opacity: 0.2;"></div>
+                <div class="legend-text">正常</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-    <!-- ---【修改結束】--- -->
 
     <div id="resizer"></div>
     <div id="ranking">
@@ -592,602 +156,10 @@
       </div>
     </div>
   </div>
+  
+  <!-- 外部 JavaScript -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/esri-leaflet/dist/esri-leaflet.js"></script>
-  <script>
-    // 全域變數初始化
-    const map = L.map("map").setView([23.5, 121], 8); // 初始化地圖，中心設為台灣，縮放等級8
-    let stationPoints = []; // 儲存測站資料
-    let watershedLayer; // 集水區圖層
-    let top10Stations = []; // 前十名測站
-    let highlightedFeature = null; 
-
-    // 新增：兩個圖層群組，一個用於個別測站，一個用於縣市群聚
-    let stationLayerGroup = L.layerGroup(); // 用於個別測站顯示
-    let countyClusterLayer = L.layerGroup(); // 用於縣市群聚顯示
-
-    // 添加比例尺
-    L.control.scale({
-      position: 'bottomleft',
-      imperial: false,
-      maxWidth: 200
-    }).addTo(map);
-
-    // 定義底圖選項
-    const baseMaps = {
-      "CartoDB Positron": L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        attribution: "© OpenStreetMap contributors, © CartoDB"
-      }),
-      "OpenStreetMap": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors"
-      }),
-      "臺灣通用電子地圖": L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}.png", {
-        attribution: "© 國土測繪中心"
-      }),
-      "國土測繪中心正射影像": L.tileLayer("https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg", {
-        attribution: "© 國土測繪中心"
-      })
-    };
-
-    // 設定預設底圖
-    baseMaps["CartoDB Positron"].addTo(map);
-
-    // 國土測繪中心縣市界圖層
-    const cityLayer = L.tileLayer(
-      "https://wmts.nlsc.gov.tw/wmts/CITY/default/GoogleMapsCompatible/{z}/{y}/{x}.png",
-      {
-        attribution: "© 國土測繪中心",
-        tileSize: 256,
-        maxZoom: 19,
-        opacity: 0.6
-      }).addTo(map);
-
-    /**
-     * 根據雨量值返回對應的顏色。
-     * @param {number} rain - 24小時累積雨量 (mm)。
-     * @returns {string} - 對應的顏色代碼。
-     */
-    function getColor(rain) {
-      // 根據雨量大小返回對應的顏色，雨量越大顏色越深
-      return rain > 300 ? "#FFD5FD" :
-             rain > 200 ? "#FF38FB" :
-             rain > 150 ? "#DB2CD1" :
-             rain > 130 ? "#A920A2" :
-             rain > 110 ? "#AA1801" :
-             rain > 90  ? "#DB2204" :
-             rain > 70  ? "#FF2A08" :
-             rain > 50  ? "#FFA71F" :
-             rain > 40  ? "#FFD328" :
-             rain > 30  ? "#FEFD31" :
-             rain > 20  ? "#02FA30" :
-             rain > 15  ? "#27A41C" :
-             rain > 10  ? "#0177FD" :
-             rain > 6   ? "#00A5FE" :
-             rain > 2   ? "#01D2FD" :
-             rain > 1   ? "#9EFDFF" :
-                          "#CACACA";
-    }
-
-    /**
-     * 顯示前十名測站的排行榜。
-     */
-    function displayTop10Ranking() {
-      const rankingList = document.getElementById("ranking-list");
-      rankingList.innerHTML = ""; // 清空現有列表
-      top10Stations = stationPoints.sort((a, b) => b.rain - a.rain).slice(0, 10); // 排序並取前十名
-      top10Stations.forEach((station, index) => {
-        const li = document.createElement("li");
-        li.innerHTML = `<span class="rank">${index + 1}. ${station.name} (${station.county || ''}${station.town || ''})</span><span class="rain">${Math.round(station.rain)}</span>`;
-        li.style.cursor = "pointer";
-        // 點擊列表項時，放大地圖並高亮測站
-        li.addEventListener("click", () => {
-          map.setView([station.lat, station.lon], 13); // 放大到測站層級
-          highlightStation(station);
-        });
-        rankingList.appendChild(li);
-      });
-    }
-   
-
-    /**
-     * 高亮顯示選中的測站。
-     * 如果地圖縮放等級不足以顯示個別測站，會先放大地圖。
-     * @param {object} station - 要高亮的測站資料。
-     */
-    function highlightStation(station) {
-      clearHighlight(); // 先清除之前的高亮
-
-      const zoomThreshold = 11;
-      const currentZoom = map.getZoom();
-
-      if (currentZoom < zoomThreshold) {
-          map.setView([station.lat, station.lon], 13);
-          requestAnimationFrame(() => highlightStation(station)); 
-          return;
-      }
-      
-      stationLayerGroup.eachLayer((layer) => {
-        if (layer instanceof L.CircleMarker) {
-          const layerLatLng = layer.getLatLng();
-          if (layerLatLng.lat === station.lat && layerLatLng.lng === station.lon) {
-            const originalStyle = {
-              radius: layer.options.radius,
-              weight: layer.options.weight,
-              color: layer.options.color
-            };
-            layer.setStyle({
-              radius: 8,
-              weight: 3,
-              color: "#ff0000"
-            });
-            layer.openPopup();
-            
-            // 記住當前高亮的圖層和其原始樣式
-            highlightedFeature = { layer: layer, originalStyle: originalStyle };
-            return;
-          }
-        }
-      });
-    }
-    
-
-    /**
-     * 高亮顯示選中的集水區。
-     * @param {string} watershedName - 要高亮的集水區名稱。
-     */
-    function highlightWatershed(watershedName) {
-      clearHighlight(); // 先清除之前的高亮
-
-      watershedLayer.eachFeature((layer) => {
-        const feature = layer.feature;
-        const areaName = feature.properties?.area_name;
-        if (areaName === watershedName) {
-          const originalStyle = {
-            weight: layer.options.weight,
-            color: layer.options.color
-          };
-          layer.setStyle({
-            weight: 4,
-            color: "#ff0000"
-          });
-          const bounds = layer.getBounds();
-          map.fitBounds(bounds, { padding: [20, 20] });
-          layer.openPopup();
-
-          // 記住當前高亮的圖層和其原始樣式
-          highlightedFeature = { layer: layer, originalStyle: originalStyle };
-        }
-      });
-    }
-    function clearHighlight() {
-      if (highlightedFeature) {
-        highlightedFeature.layer.setStyle(highlightedFeature.originalStyle);
-        highlightedFeature = null;
-      }
-    }
-
-    /**
-     * 在集水區邊界緩衝區內搜尋測站。
-     * @param {L.Layer} watershedLayer - 集水區的 Leaflet 圖層。
-     * @param {Array<object>} stations - 所有測站的資料陣列。
-     * @param {number} bufferDistanceMeters - 緩衝區距離 (米)。
-     * @returns {Array<object>} - 在緩衝區內的測站陣列。
-     */
-    function getStationsWithinBuffer(watershedLayer, stations, bufferDistanceMeters) {
-      return stations.filter(station => {
-        const stationLatLng = L.latLng(station.lat, station.lon);
-        
-        // 計算測站到集水區邊界的最短距離
-        const minDistance = getMinDistanceToPolygonBounds(stationLatLng, watershedLayer);
-        
-        // 如果測站在集水區內或在緩衝區內，就包含它
-        return minDistance <= bufferDistanceMeters;
-      });
-    }
-
-    /**
-     * 計算點到多邊形邊界矩形的最短距離 (近似值)。
-     * @param {L.LatLng} point - 點的經緯度。
-     * @param {L.Layer} polygon - 多邊形的 Leaflet 圖層。
-     * @returns {number} - 點到多邊形邊界矩形的最短距離 (米)。
-     */
-    function getMinDistanceToPolygonBounds(point, polygon) {
-      const bounds = polygon.getBounds();
-      
-      // 如果點在邊界內，距離為0
-      if (bounds.contains(point)) {
-        return 0;
-      }
-      
-      // 計算到邊界矩形的距離
-      const north = bounds.getNorth();
-      const south = bounds.getSouth();
-      const east = bounds.getEast();
-      const west = bounds.getWest();
-      
-      const lat = point.lat;
-      const lng = point.lng;
-      
-      let latDistance = 0;
-      let lngDistance = 0;
-      
-      // 計算緯度方向的距離
-      if (lat > north) {
-        latDistance = (lat - north) * 111000; // 1度緯度約111公里
-      } else if (lat < south) {
-        latDistance = (south - lat) * 111000;
-      }
-      
-      // 計算經度方向的距離
-      if (lng > east) {
-        lngDistance = (lng - east) * 111000 * Math.cos(lat * Math.PI / 180);
-      } else if (lng < west) {
-        lngDistance = (west - lng) * 111000 * Math.cos(lat * Math.PI / 180);
-      }
-      
-      // 返回總距離 (勾股定理)
-      return Math.sqrt(latDistance * latDistance + lngDistance * lngDistance);
-    }
-
-    /**
-     * 根據地圖縮放等級，顯示縣市群聚或個別測站。
-     */
-    function updateStationDisplay() {
-      const zoomThreshold = 11; // 閾值，低於此縮放等級顯示縣市群聚，高於此顯示個別測站
-      const currentZoom = map.getZoom();
-
-      // 清除所有測站相關圖層，準備重新繪製
-      stationLayerGroup.clearLayers();
-      countyClusterLayer.clearLayers();
-      
-      // 確保兩個圖層都被移除了地圖，待會根據條件重新添加
-      map.removeLayer(stationLayerGroup);
-      map.removeLayer(countyClusterLayer);
-
-      if (currentZoom < zoomThreshold) {
-        // 顯示縣市群聚
-        const countyStations = {};
-        stationPoints.forEach(station => {
-          // 確保 station.county 存在，否則歸類到「未知縣市」
-          const countyName = station.county || '未知縣市'; 
-          if (!countyStations[countyName]) {
-            countyStations[countyName] = [];
-          }
-          countyStations[countyName].push(station);
-        });
-
-        for (const countyName in countyStations) {
-          const stationsInCounty = countyStations[countyName];
-          if (stationsInCounty.length > 0) {
-            // 計算縣市群聚的中心點 (取所有測站的平均經緯度)
-            let sumLat = 0;
-            let sumLon = 0;
-            stationsInCounty.forEach(s => {
-              sumLat += s.lat;
-              sumLon += s.lon;
-            });
-            const centerLat = sumLat / stationsInCounty.length;
-            const centerLon = sumLon / stationsInCounty.length;
-
-            const clusterMarker = L.marker([centerLat, centerLon], {
-              icon: L.divIcon({
-                className: 'county-cluster-marker',
-                html: `<div>${stationsInCounty.length}測站</div>`, // 顯示該縣市的測站數量
-                iconSize: [50, 50],
-                iconAnchor: [20, 20]
-              })
-            });
-
-            clusterMarker.bindTooltip(`<b>${countyName}</b><br>測站數量: ${stationsInCounty.length}`);
-            
-            // 點擊縣市群聚時，放大地圖並顯示個別測站
-            clusterMarker.on('click', function() {
-                map.setView([centerLat, centerLon], zoomThreshold);
-            });
-
-            countyClusterLayer.addLayer(clusterMarker);
-          }
-        }
-        countyClusterLayer.addTo(map); // 將縣市群聚圖層添加到地圖
-      } else {
-        // 顯示個別測站
-        stationPoints.forEach((station) => {
-          const marker = L.circleMarker([station.lat, station.lon], {
-            radius: 4.5,
-            fillColor: getColor(station.rain),
-            color: "#333",
-            weight: 1,
-            fillOpacity: 0.8,
-          });
-          // 顯示測站名稱標籤
-          const label = L.marker([station.lat, station.lon], {
-            icon: L.divIcon({
-              className: 'station-label',
-              html: station.name,
-              iconSize: [null, null],
-              iconAnchor: [0, -10]
-            })
-          });
-          
-          marker.bindPopup(`<b>${station.name} (${station.county || ''}${station.town || ''})</b><br>24小時累積雨量：${Math.round(station.rain)} mm`);
-          stationLayerGroup.addLayer(marker);
-          stationLayerGroup.addLayer(label); // 將標籤也添加到測站圖層群組
-        });
-        stationLayerGroup.addTo(map); // 將個別測站圖層添加到地圖
-      }
-    }
-
-    /**
-     * 顯示超過十年重現期的排水區域列表。
-     * @param {Array<object>} redWatershedsData - 超過十年重現期的集水區資料陣列。
-     */
-    function displayRedWatersheds(redWatershedsData) {
-      const redWatershedsList = document.getElementById("red-watersheds");
-      redWatershedsList.innerHTML = ""; // 清空現有列表
-
-    // 如果沒有任何資料，就顯示"無"並結束函式
-      if (redWatershedsData.length === 0) {
-          redWatershedsList.innerHTML = '<li>無</li>';
-          return; 
-      }
-
-    // 如果有資料，才執行迴圈來顯示列表
-      redWatershedsData.forEach((watershedInfo) => {
-          const li = document.createElement("li");
-          li.innerHTML = `
-          <div>
-              <span class="watershed">${watershedInfo.name}</span>
-              <div style="font-size: 11px; color: #666; margin-top: 2px;">
-              觸發測站: ${watershedInfo.triggerStations.join(', ')}
-              </div>
-          </div>
-          `;
-          li.className = "clickable-watershed";
-          li.style.cursor = "pointer";
-          li.addEventListener("click", () => {
-          highlightWatershed(watershedInfo.name);
-          });
-          redWatershedsList.appendChild(li);
-      });
-    }
-
-
-
-    /**
-     * 載入集水區資料並添加到地圖。
-     */
-    function loadWatersheds() {
-      // 如果圖層已經存在，則先移除，防止重複添加
-      if (watershedLayer) { 
-        map.removeLayer(watershedLayer); 
-      }
-      watershedLayer = L.esri.featureLayer({
-        url: "https://gisportal.triwra.org.tw/server/rest/services/Hosted/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4%E9%9B%86%E6%B0%B4%E5%8D%8020250806/FeatureServer/0",
-        style: function (feature) {
-          return {
-            color: "#666",
-            weight: 1,
-            fillColor: "#ccc",
-            fillOpacity: 0.4,
-          };
-        },
-        onEachFeature: function (feature, layer) {
-          layer.bindPopup(
-            `<h3>${feature.properties?.name || "無"}</h3><br>` +
-            `<b>2年重現期：</b>${feature.properties?.r_2 || "無"} <br>` +
-            `<b>5年重現期：</b>${feature.properties?.r_5 || "無"} <br>` +
-            `<b>10年重現期：</b>${feature.properties?.r_10 || "無"} <br>` +
-            `<b>25年重現期：</b>${feature.properties?.r_25 || "無"} <br>` +
-            `<b>50年重現期：</b>${feature.properties?.r_50 || "無"} <br>` +
-            `<b>100年重現期：</b>${feature.properties?.r_100 || "無"} `
-          );
-        },
-        zIndex: 1
-      }).addTo(map);
-
-      watershedLayer.on("load", () => {
-        console.log("2. 集水區圖資載入完成！");
-        const redWatershedsData = []; 
-        
-        watershedLayer.eachFeature((layer) => {
-          const feature = layer.feature;
-          const props = feature.properties;
-
-          // 將所有重現期數值轉換為數字，方便比較
-          const r = {
-            100: parseFloat(props?.r_100),
-            50: parseFloat(props?.r_50),
-            25: parseFloat(props?.r_25),
-            10: parseFloat(props?.r_10),
-            5: parseFloat(props?.r_5),
-            2: parseFloat(props?.r_2)
-          };
-
-          // 找出這個集水區內的所有雨量測站
-          const stationsInside = getStationsWithinBuffer(layer, stationPoints, 100);
-          if (stationsInside.length === 0) {
-              // 如果集水區內沒有測站，就設為預設樣式並跳過
-              layer.setStyle({
-                  fillColor: "#95E605",
-                  fillOpacity: 0.2,
-                  color: "#666",
-                  weight: 1,
-              });
-              return; 
-          }
-
-          // 找出區域內最大的雨量值
-          const maxRain = Math.max(...stationsInside.map(s => s.rain));
-
-          // 預設樣式 (正常狀態)
-          let fillColor = "#95E605";
-          let fillOpacity = 0.2;
-          let color = "#666";
-          let weight = 1;
-          let isHazardous = false; // 用來判斷是否要加入右側列表
-
-          // --- 核心修改：由最嚴重的等級往下判斷 ---
-          if (!isNaN(r[100]) && maxRain > r[100]) {
-            fillColor = "#8B0000";
-            fillOpacity = 0.6;
-            isHazardous = true;
-          } else if (!isNaN(r[50]) && maxRain > r[50]) {
-            fillColor = "#B22222";
-            fillOpacity = 0.55;
-            isHazardous = true;
-          } else if (!isNaN(r[25]) && maxRain > r[25]) {
-            fillColor = "#DC143C";
-            fillOpacity = 0.5;
-            isHazardous = true;
-          } else if (!isNaN(r[10]) && maxRain > r[10]) {
-            fillColor = "#FF4500";
-            fillOpacity = 0.45;
-            isHazardous = true;
-          } else if (!isNaN(r[5]) && maxRain > r[5]) {
-            fillColor = "#FF8C00";
-            fillOpacity = 0.4;
-          } else if (!isNaN(r[2]) && maxRain > r[2]) {
-            fillColor = "#fff050";
-            fillOpacity = 0.4;
-          }
-          
-          // 如果達到10年(含)以上的致災等級，就加到右側列表
-          if (isHazardous) {
-            color = "#BE0202";
-            weight = 2;
-            const watershedName = props?.name || "未知集水區";
-            const triggerStations = stationsInside
-                .filter(station => station.rain > r[10]) // 只顯示超過10年重現期的測站
-                .map(station => `${station.name}(${Math.round(station.rain)}mm)`);
-
-            redWatershedsData.push({
-              name: watershedName,
-              triggerStations: triggerStations.length > 0 ? triggerStations : [`最大雨量 ${Math.round(maxRain)}mm`]
-            });
-          }
-
-          // 套用最終計算出的樣式
-          layer.setStyle({
-            fillColor: fillColor,
-            fillOpacity: fillOpacity,
-            color: color,
-            weight: weight,
-          });
-        });
-
-        console.log(`3. 完成 ${watershedLayer.getLayers().length} 個集水區的顏色分析。`);
-        displayRedWatersheds(redWatershedsData); 
-        updateStationDisplay(); 
-      });
-
-      // 定義圖層控制
-      const overlayMaps = {
-        "雨量測站": stationLayerGroup, // 這個現在控制的是個別測站層
-      //"縣市雨量群聚": countyClusterLayer, // 新增縣市群聚作為可切換圖層
-        "區域排水": watershedLayer,
-        "縣市界": cityLayer,
-      };
-
-      // 將圖層控制添加到地圖
-      L.control.layers(baseMaps, overlayMaps, { position: "topright" }).addTo(map);
-    }
-
-    /**
-     * 從中央氣象署 API 載入雨量測站資料。
-     */
-    function loadStationData() {
-      // 從中央氣象署API獲取24小時雨量資料
-      fetch("https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0002-001?Authorization=CWA-3136E89E-8A4C-40CB-BCF2-2C1D2E78AF8D&RainfallElement=Past24hr")
-        .then((res) => res.json())
-        .then((data) => {
-          const stations = data.records?.Station || [];
-          stations.forEach((station) => {
-            const coord = station.GeoInfo?.Coordinates?.find((c) => c.CoordinateName === "WGS84");
-            const lat = parseFloat(coord?.StationLatitude);
-            const lon = parseFloat(coord?.StationLongitude);
-            const rain = parseFloat(station.RainfallElement?.Past24hr?.Precipitation);
-            const county = station.GeoInfo?.CountyName; 
-            const town = station.GeoInfo?.TownName
-
-            if (!isNaN(lat) && !isNaN(lon) && !isNaN(rain)) {
-              stationPoints.push({ lat, lon, rain, name: station.StationName, county, town });
-            }
-          });
-          displayTop10Ranking();
-          // 確保在載入測站資料後才載入集水區，因為集水區的渲染依賴測站資料
-          loadWatersheds(); 
-        })
-        .catch((err) => {
-          console.error("雨量站資料載入失敗", err);
-          // 即使資料載入失敗，仍然嘗試載入集水區，只是集水區的顏色可能不會正確反應雨量
-          loadWatersheds(); 
-        });
-    }
-
-    // --- 可調整大小的面板邏輯 ---
-    const resizer = document.getElementById('resizer');
-    const rankingPanel = document.getElementById('ranking');
-
-    let isResizing = false;
-
-    resizer.addEventListener('mousedown', function(e) {
-        isResizing = true;
-        let startX = e.clientX;
-        let startWidth = parseInt(document.defaultView.getComputedStyle(rankingPanel).width, 10);
-
-        function doDrag(e) {
-            if (!isResizing) return;
-            let newWidth = startWidth - (e.clientX - startX);
-            rankingPanel.style.width = newWidth + 'px';
-            map.invalidateSize(); // 通知地圖重新計算大小
-        }
-
-        function stopDrag() {
-            isResizing = false;
-            document.removeEventListener('mousemove', doDrag);
-            document.removeEventListener('mouseup', stopDrag);
-        }
-
-        document.addEventListener('mousemove', doDrag);
-        document.addEventListener('mouseup', stopDrag);
-    });
-
-
-    // 監聽地圖縮放事件，以更新測站顯示模式
-    map.on('zoomend', updateStationDisplay);
-
-    // 初始化應用程式
-    loadStationData();
-
-    // CWA 框架收合/展開功能
-    const cwaFrame = document.getElementById('cwa-frame');
-    const toggleCwaBtn = document.getElementById('toggleCwaBtn');
-
-    toggleCwaBtn.addEventListener('click', () => {
-      cwaFrame.classList.toggle('collapsed');
-      
-      const isCollapsed = cwaFrame.classList.contains('collapsed');
-      if (isCollapsed) {
-        toggleCwaBtn.innerHTML = '<span class="arrow">&#9654;</span><span class="text">展開</span>'; // 右箭頭+展開
-        toggleCwaBtn.title = '展開氣象署資訊';
-      } else {
-        toggleCwaBtn.innerHTML = '<span class="arrow">&#9664;</span><span class="text">收合</span>'; // 左箭頭+收合
-        toggleCwaBtn.title = '收合氣象署資訊';
-      }
-
-      // 在過渡動畫完成後，通知 Leaflet 地圖重新計算大小
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 300); 
-    });
-
-    // --- 新增：圖例收合功能 ---
-    const legend = document.getElementById('legend');
-    const legendHeader = legend.querySelector('.legend-header');
-
-    legendHeader.addEventListener('click', () => {
-        legend.classList.toggle('collapsed');
-    });
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
