@@ -125,11 +125,21 @@
       line-height: 1;
     }
     
+    /* ---【修改處 1】--- */
     /* 中間地圖區塊 */
-    #map {
+    #map-container { /* 新增：地圖與圖例的容器 */
+      position: relative; /* 作為圖例絕對定位的基準 */
       flex-grow: 1;
       height: 100%;
     }
+
+    #map {
+      height: 100%;
+      width: 100%; /* 確保地圖填滿容器 */
+      background-color: #f0f2f5; /* 給地圖一個背景色，避免載入時閃爍 */
+    }
+    /* ---【修改結束】--- */
+
 
     /* --- 新增：可調整大小的拉桿 --- */
     #resizer {
@@ -285,7 +295,7 @@
       content: "+"; /* 收合狀態的加號 */
     }
     .legend-content {
-      max-height: 500px; /* 設定一個足夠大的高度 */
+      max-height: 550px; /* 設定一個足夠大的高度 */
       overflow: hidden;
       transition: max-height 0.3s ease-out, padding-top 0.3s ease-out, margin-top 0.3s ease-out;
       margin-top: 10px;
@@ -338,10 +348,10 @@
 
 
     /* 響應式調整 */
-  @media (max-width: 768px) {
+    @media (max-width: 768px) {
 
-        /* --- RWD 模式下，調整區塊顯示順序 --- */
-      #map {
+      /* --- RWD 模式下，調整區塊顯示順序 --- */
+      #map-container { /* 修改：排序套用至容器 */
         order: 1; /* 1. 地圖 */
       }
       #ranking {
@@ -350,62 +360,85 @@
       #cwa-frame {
         order: 3; /* 3. CWA 資訊 */
       }
-    /* 允許頁面在手機上滾動，並加上一個淺灰色底，讓卡片效果更明顯 */
-    body {
-      overflow: auto;
-      background-color: #f0f2f5; 
-    }
+      /* 允許頁面在手機上滾動，並加上一個淺灰色底，讓卡片效果更明顯 */
+      body {
+        overflow: auto;
+        background-color: #f0f2f5; 
+      }
 
-    #main-content {
-      flex-direction: column;
-      height: auto; /* 讓內容決定整體高度 */
-      padding-top: 15px; /* 讓第一個區塊和頂部也有些間距 */
-    }
+      #header {
+        height: auto;
+        min-height: 60px;
+        flex-direction: column; 
+        justify-content: center;
+        padding: 10px 15px;
+        text-align: center;
+      }
 
-    /* 【主要修改處】為所有區塊設定統一的外觀和間距 */
-    #cwa-frame, #map, #ranking {
-      width: 90% !important; /* 寬度設為96%，並用!important覆蓋JS的行內樣式 */
-      max-width: 680px; /* 在較大的平板上，避免區塊過寬 */
-      margin: 0 auto 15px auto; /* 上下邊距15px，左右自動 (實現水平置中) */
+      #header h1 {
+          font-size: 16px;
+          margin-bottom: 4px;
+          line-height: 1.3;
+      }
+
+      #header .organization-name {
+          font-size: 12px;
+      }
+
+      #main-content {
+        flex-direction: column;
+        height: auto; /* 讓內容決定整體高度 */
+        padding-top: 15px; /* 讓第一個區塊和頂部也有些間距 */
+      }
+
+      /* ---【修改處 2】--- */
+      /* 為所有區塊設定統一的外觀和間距 */
+      #cwa-frame, #map-container, #ranking { /* 將 #map 改為 #map-container */
+        width: 90% !important; /* 寬度設為90%，並用!important覆蓋JS的行內樣式 */
+        max-width: 680px; /* 在較大的平板上，避免區塊過寬 */
+        margin: 0 auto 15px auto; /* 上下邊距15px，左右自動 (實現水平置中) */
+        
+        border-radius: 8px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+        
+        flex-shrink: 0;
+        max-width: none;
+      }
+
+      /* 針對不同區塊設定各自的高度 */
+      #cwa-frame {
+        height:400px;
+      }
+      #ranking{
+        height:auto;
+      }
+      #map-container { /* 新增：手機版容器高度自動 */
+        height: auto;
+      }
+      #map { /* 新增：手機版地圖高度 */
+        height: 600px;
+      }
+
+      /* 最後一個區塊下方也保留一些空間，讓頁面底部不擁擠 */
+      #ranking {
+        margin-bottom: 15px;
+      }
       
-      /* 既然有留白了，可以把圓角和陰影加回來，看起來更像卡片 */
-      border-radius: 8px; 
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-      
-      flex-shrink: 0;
-      max-width: none;
-    }
+      #resizer {
+          display: none; /* 手機版隱藏拉桿 */
+      }
 
-    /* 針對不同區塊設定各自的高度 */
-    #cwa-frame {
-      height: 300px;
+      .legend {
+        position: static; /* 這條規則現在可以正常運作了 */
+        margin: 10px auto;
+        width: calc(100% - 40px);
+        max-width: none;
+        box-shadow: none;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      }
+      /* ---【修改結束】--- */
     }
-    #ranking{
-      height:auto;
-    }
-    #map {
-      height: 400px;
-    }
-
-    /* 最後一個區塊下方也保留一些空間，讓頁面底部不擁擠 */
-    #ranking {
-      margin-bottom: 15px;
-    }
-    
-    #resizer {
-        display: none; /* 手機版隱藏拉桿 */
-    }
-
-    .legend {
-      position: static;
-      margin: 10px auto;
-      width: calc(100% - 40px);
-      max-width: none;
-      box-shadow: none;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-    }
-  }
 
 
   </style>
@@ -430,8 +463,12 @@
         <span class="text">收合</span>
       </button>
     </div>
-    <div id="map">
-      <!-- --- 修改圖例 HTML 結構 --- -->
+    
+    <!-- ---【修改處 3】--- -->
+    <!-- 建立 map-container 來包裝地圖和圖例 -->
+    <div id="map-container">
+      <div id="map"></div>
+      <!-- 將圖例移至 map-container 內，與 map 同級 -->
       <div class="legend" id="legend">
         <div class="legend-header">
           <h3>圖例</h3>
@@ -512,22 +549,39 @@
           <div class="legend-section">
             <h4>區域排水狀態</h4>
             <div class="legend-item">
-              <div class="legend-color watershed" style="background-color: #BE0202; opacity: 0.4;"></div>
-              <div class="legend-text">雨量超過十年重現期(致災)</div>
+              <div class="legend-color watershed" style="background-color: #8B0000; opacity: 0.6;"></div>
+              <div class="legend-text">雨量超過100年重現期</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color watershed" style="background-color: #B22222; opacity: 0.55;"></div>
+              <div class="legend-text">雨量超過50年重現期</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color watershed" style="background-color: #DC143C; opacity: 0.5;"></div>
+              <div class="legend-text">雨量超過25年重現期</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color watershed" style="background-color: #FF4500; opacity: 0.45;"></div>
+              <div class="legend-text">雨量超過10年重現期(致災)</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color watershed" style="background-color: #FF8C00; opacity: 0.4;"></div>
+              <div class="legend-text">雨量超過5年重現期(警戒)</div>
             </div>
             <div class="legend-item">
               <div class="legend-color watershed" style="background-color: #fff050; opacity: 0.4;"></div>
-              <div class="legend-text">雨量接近十年重現期(警戒)</div>
+              <div class="legend-text">雨量超過2年重現期</div>
             </div>
             <div class="legend-item">
               <div class="legend-color watershed" style="background-color: #95E605; opacity: 0.2;"></div>
-              <div class="legend-text">正常狀態</div>
+              <div class="legend-text">正常</div>
             </div>
           </div>
         </div>
       </div>
     </div>
-    <!-- --- 新增：可調整大小的拉桿 --- -->
+    <!-- ---【修改結束】--- -->
+
     <div id="resizer"></div>
     <div id="ranking">
       <div id="ranking-content">
@@ -546,7 +600,7 @@
     let stationPoints = []; // 儲存測站資料
     let watershedLayer; // 集水區圖層
     let top10Stations = []; // 前十名測站
-    let highlightedFeature = null; // << --- 請新增這一行
+    let highlightedFeature = null; 
 
     // 新增：兩個圖層群組，一個用於個別測站，一個用於縣市群聚
     let stationLayerGroup = L.layerGroup(); // 用於個別測站顯示
@@ -681,7 +735,6 @@
      * 高亮顯示選中的集水區。
      * @param {string} watershedName - 要高亮的集水區名稱。
      */
-    // --- 請用這段程式碼取代舊的 highlightWatershed 函式 ---
     function highlightWatershed(watershedName) {
       clearHighlight(); // 先清除之前的高亮
 
@@ -706,7 +759,6 @@
         }
       });
     }
-      // --- 請新增這個函式 ---
     function clearHighlight() {
       if (highlightedFeature) {
         highlightedFeature.layer.setStyle(highlightedFeature.originalStyle);
@@ -910,7 +962,7 @@
         map.removeLayer(watershedLayer); 
       }
       watershedLayer = L.esri.featureLayer({
-        url: "https://gisportal.triwra.org.tw/server/rest/services/Hosted/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4_test_WFL1/FeatureServer/0",
+        url: "https://gisportal.triwra.org.tw/server/rest/services/Hosted/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4%E9%9B%86%E6%B0%B4%E5%8D%8020250806/FeatureServer/0",
         style: function (feature) {
           return {
             color: "#666",
@@ -921,52 +973,100 @@
         },
         onEachFeature: function (feature, layer) {
           layer.bindPopup(
-            `${feature.properties?.area_name || "無"}<br>` +
-            `<b>十年重現期：</b>${feature.properties?.temp || "無"}`
+            `<h3>${feature.properties?.name || "無"}</h3><br>` +
+            `<b>2年重現期：</b>${feature.properties?.r_2 || "無"} <br>` +
+            `<b>5年重現期：</b>${feature.properties?.r_5 || "無"} <br>` +
+            `<b>10年重現期：</b>${feature.properties?.r_10 || "無"} <br>` +
+            `<b>25年重現期：</b>${feature.properties?.r_25 || "無"} <br>` +
+            `<b>50年重現期：</b>${feature.properties?.r_50 || "無"} <br>` +
+            `<b>100年重現期：</b>${feature.properties?.r_100 || "無"} `
           );
         },
         zIndex: 1
       }).addTo(map);
 
       watershedLayer.on("load", () => {
-        const redWatershedsData = []; // 每次圖層載入時，都重新建立一個空的陣列
+        console.log("2. 集水區圖資載入完成！");
+        const redWatershedsData = []; 
+        
         watershedLayer.eachFeature((layer) => {
           const feature = layer.feature;
-          const tempValue = parseFloat(feature.properties?.temp);
-          if (isNaN(tempValue)) return;
+          const props = feature.properties;
 
-          // 使用100m緩衝區搜尋測站
+          // 將所有重現期數值轉換為數字，方便比較
+          const r = {
+            100: parseFloat(props?.r_100),
+            50: parseFloat(props?.r_50),
+            25: parseFloat(props?.r_25),
+            10: parseFloat(props?.r_10),
+            5: parseFloat(props?.r_5),
+            2: parseFloat(props?.r_2)
+          };
+
+          // 找出這個集水區內的所有雨量測站
           const stationsInside = getStationsWithinBuffer(layer, stationPoints, 100);
+          if (stationsInside.length === 0) {
+              // 如果集水區內沒有測站，就設為預設樣式並跳過
+              layer.setStyle({
+                  fillColor: "#95E605",
+                  fillOpacity: 0.2,
+                  color: "#666",
+                  weight: 1,
+              });
+              return; 
+          }
 
+          // 找出區域內最大的雨量值
+          const maxRain = Math.max(...stationsInside.map(s => s.rain));
+
+          // 預設樣式 (正常狀態)
           let fillColor = "#95E605";
           let fillOpacity = 0.2;
           let color = "#666";
           let weight = 1;
+          let isHazardous = false; // 用來判斷是否要加入右側列表
 
-          // 找出超過十年重現期或接近的測站
-          const exceedingStations = stationsInside.filter((pt) => pt.rain > tempValue);
-          
-          if (exceedingStations.length > 0) {
-            fillColor = "red";
+          // --- 核心修改：由最嚴重的等級往下判斷 ---
+          if (!isNaN(r[100]) && maxRain > r[100]) {
+            fillColor = "#8B0000";
+            fillOpacity = 0.6;
+            isHazardous = true;
+          } else if (!isNaN(r[50]) && maxRain > r[50]) {
+            fillColor = "#B22222";
+            fillOpacity = 0.55;
+            isHazardous = true;
+          } else if (!isNaN(r[25]) && maxRain > r[25]) {
+            fillColor = "#DC143C";
+            fillOpacity = 0.5;
+            isHazardous = true;
+          } else if (!isNaN(r[10]) && maxRain > r[10]) {
+            fillColor = "#FF4500";
+            fillOpacity = 0.45;
+            isHazardous = true;
+          } else if (!isNaN(r[5]) && maxRain > r[5]) {
+            fillColor = "#FF8C00";
             fillOpacity = 0.4;
-            color = "#BE0202";
-            weight = 2;
-            const watershedName = feature.properties?.area_name || "未知集水區";
-            
-            // 收集觸發測站的名稱和雨量
-            const triggerStations = exceedingStations.map(station => 
-              `${station.name}(${Math.round(station.rain)}mm)`
-            );
-            
-            redWatershedsData.push({
-              name: watershedName,
-              triggerStations: triggerStations
-            });
-          } else if (stationsInside.some((pt) => pt.rain >= tempValue * 0.8)) {
-            fillColor = "#FFF79D";
+          } else if (!isNaN(r[2]) && maxRain > r[2]) {
+            fillColor = "#fff050";
             fillOpacity = 0.4;
           }
+          
+          // 如果達到10年(含)以上的致災等級，就加到右側列表
+          if (isHazardous) {
+            color = "#BE0202";
+            weight = 2;
+            const watershedName = props?.name || "未知集水區";
+            const triggerStations = stationsInside
+                .filter(station => station.rain > r[10]) // 只顯示超過10年重現期的測站
+                .map(station => `${station.name}(${Math.round(station.rain)}mm)`);
 
+            redWatershedsData.push({
+              name: watershedName,
+              triggerStations: triggerStations.length > 0 ? triggerStations : [`最大雨量 ${Math.round(maxRain)}mm`]
+            });
+          }
+
+          // 套用最終計算出的樣式
           layer.setStyle({
             fillColor: fillColor,
             fillOpacity: fillOpacity,
@@ -975,8 +1075,9 @@
           });
         });
 
-        displayRedWatersheds(redWatershedsData); // 更新顯示列表
-        updateStationDisplay(); // 確保測站顯示邏輯被觸發
+        console.log(`3. 完成 ${watershedLayer.getLayers().length} 個集水區的顏色分析。`);
+        displayRedWatersheds(redWatershedsData); 
+        updateStationDisplay(); 
       });
 
       // 定義圖層控制
