@@ -8,6 +8,14 @@
     // 新增：兩個圖層群組，一個用於個別測站，一個用於縣市群聚
     let stationLayerGroup = L.layerGroup(); // 用於個別測站顯示
     let countyClusterLayer = L.layerGroup(); // 用於縣市群聚顯示
+    let floodSensorLayer = L.layerGroup(); // 用於淹水感測器
+    let isFloodLayerManuallyEnabled = false; // 追蹤使用者是否手動開啟淹水圖層
+    let isRainLayerManuallyEnabled = true; // 追蹤雨量圖層的勾選狀態，預設為開啟
+    let loodInundationLayer_200mm, 
+        floodInundationLayer_350mm, 
+        floodInundationLayer_500mm, 
+        floodInundationLayer_650mm;
+
 
     // 添加比例尺
     L.control.scale({
@@ -236,99 +244,86 @@
      * 根據地圖縮放等級，顯示縣市群聚或個別測站。
      */
     function updateStationDisplay() {
-        let zoomThreshold; // 改為 let，因為值會變動
-
-        // 根據 style.css 的 RWD 斷點 (768px) 來判斷
-        if (window.innerWidth <= 768) {
-            // 如果是手機版寬度，設定較低的門檻值
-            zoomThreshold = 10;
-        } else {
-            // 如果是電腦版寬度，維持原來的門檻值
-            zoomThreshold = 11;
-        }
-
-        const currentZoom = map.getZoom();
-
-      // 清除所有測站相關圖層，準備重新繪製
-      stationLayerGroup.clearLayers();
-      countyClusterLayer.clearLayers();
-      
-      // 確保兩個圖層都被移除了地圖，待會根據條件重新添加
-      map.removeLayer(stationLayerGroup);
-      map.removeLayer(countyClusterLayer);
-
-      if (currentZoom < zoomThreshold) {
-        // 顯示縣市群聚
-        const countyStations = {};
-        stationPoints.forEach(station => {
-          // 確保 station.county 存在，否則歸類到「未知縣市」
-          const countyName = station.county || '未知縣市'; 
-          if (!countyStations[countyName]) {
-            countyStations[countyName] = [];
-          }
-          countyStations[countyName].push(station);
-        });
-
-        for (const countyName in countyStations) {
-          const stationsInCounty = countyStations[countyName];
-          if (stationsInCounty.length > 0) {
-            // 計算縣市群聚的中心點 (取所有測站的平均經緯度)
-            let sumLat = 0;
-            let sumLon = 0;
-            stationsInCounty.forEach(s => {
-              sumLat += s.lat;
-              sumLon += s.lon;
-            });
-            const centerLat = sumLat / stationsInCounty.length;
-            const centerLon = sumLon / stationsInCounty.length;
-
-            const clusterMarker = L.marker([centerLat, centerLon], {
-              icon: L.divIcon({
-                className: 'county-cluster-marker',
-                html: `<div>${stationsInCounty.length}測站</div>`, // 顯示該縣市的測站數量
-                iconSize: [50, 50],
-                iconAnchor: [20, 20]
-              })
-            });
-
-            clusterMarker.bindTooltip(`<b>${countyName}</b><br>測站數量: ${stationsInCounty.length}`);
-            
-            // 點擊縣市群聚時，放大地圖並顯示個別測站
-            clusterMarker.on('click', function() {
-                map.setView([centerLat, centerLon], zoomThreshold);
-            });
-
-            countyClusterLayer.addLayer(clusterMarker);
-          }
-        }
-        countyClusterLayer.addTo(map); // 將縣市群聚圖層添加到地圖
-      } else {
-        // 顯示個別測站
-        stationPoints.forEach((station) => {
-          const marker = L.circleMarker([station.lat, station.lon], {
-            radius: 4.5,
-            fillColor: getColor(station.rain),
-            color: "#333",
-            weight: 1,
-            fillOpacity: 0.8,
-          });
-          // 顯示測站名稱標籤
-          const label = L.marker([station.lat, station.lon], {
-            icon: L.divIcon({
-              className: 'station-label',
-              html: station.name,
-              iconSize: [null, null],
-              iconAnchor: [0, -10]
-            })
-          });
-          
-          marker.bindPopup(`<b>${station.name} (${station.county || ''}${station.town || ''})</b><br>24小時累積雨量：${Math.round(station.rain)} mm`);
-          stationLayerGroup.addLayer(marker);
-          stationLayerGroup.addLayer(label); // 將標籤也添加到測站圖層群組
-        });
-        stationLayerGroup.addTo(map); // 將個別測站圖層添加到地圖
-      }
+    let zoomThreshold;
+    if (window.innerWidth <= 768) {
+        zoomThreshold = 10;
+    } else {
+        zoomThreshold = 11;
     }
+    const currentZoom = map.getZoom();
+
+    // --- 控制雨量測站圖層的邏輯 ---
+    // 先清除現有圖層，確保不會有殘留
+    stationLayerGroup.clearLayers();
+    countyClusterLayer.clearLayers();
+    map.removeLayer(stationLayerGroup);
+    map.removeLayer(countyClusterLayer);
+
+    if (isRainLayerManuallyEnabled) {
+        // 只有當手動啟用雨量圖層時，才根據縮放等級顯示適當圖層
+        if (currentZoom < zoomThreshold) {
+            // 顯示縣市群聚圖層
+            const countyStations = {};
+            stationPoints.forEach(station => {
+                const countyName = station.county || '未知縣市';
+                if (!countyStations[countyName]) {
+                    countyStations[countyName] = [];
+                }
+                countyStations[countyName].push(station);
+            });
+            for (const countyName in countyStations) {
+                const stationsInCounty = countyStations[countyName];
+                if (stationsInCounty.length > 0) {
+                    let sumLat = 0, sumLon = 0;
+                    stationsInCounty.forEach(s => { sumLat += s.lat; sumLon += s.lon; });
+                    const centerLat = sumLat / stationsInCounty.length;
+                    const centerLon = sumLon / stationsInCounty.length;
+                    const clusterMarker = L.marker([centerLat, centerLon], {
+                        icon: L.divIcon({
+                            className: 'county-cluster-marker',
+                            html: `<div>${stationsInCounty.length}測站</div>`,
+                            iconSize: [50, 50],
+                            iconAnchor: [20, 20]
+                        })
+                    });
+                    clusterMarker.bindTooltip(`<b>${countyName}</b><br>測站數量: ${stationsInCounty.length}`);
+                    clusterMarker.on('click', () => map.setView([centerLat, centerLon], zoomThreshold));
+                    countyClusterLayer.addLayer(clusterMarker);
+                }
+            }
+            countyClusterLayer.addTo(map);
+        } else {
+            // 顯示個別測站圖層
+            stationPoints.forEach((station) => {
+                const marker = L.circleMarker([station.lat, station.lon], {
+                    radius: 4.5,
+                    fillColor: getColor(station.rain),
+                    color: "#333",
+                    weight: 1,
+                    fillOpacity: 0.8,
+                });
+                const label = L.marker([station.lat, station.lon], {
+                    icon: L.divIcon({
+                        className: 'station-label',
+                        html: station.name,
+                        iconSize: [null, null],
+                        iconAnchor: [0, -10]
+                    })
+                });
+                marker.bindPopup(`<b>${station.name} (${station.county || ''}${station.town || ''})</b><br>24小時累積雨量：${Math.round(station.rain)} mm`);
+                stationLayerGroup.addLayer(marker);
+                stationLayerGroup.addLayer(label);
+            });
+            stationLayerGroup.addTo(map);
+        }
+    }
+        // --- 控制淹水感測器圖層的邏輯 ---
+      if (isFloodLayerManuallyEnabled && currentZoom >= zoomThreshold) {
+          if (!map.hasLayer(floodSensorLayer)) map.addLayer(floodSensorLayer);
+      } else {
+          if (map.hasLayer(floodSensorLayer)) map.removeLayer(floodSensorLayer);
+      }
+}
 
     /**
      * 顯示超過十年重現期的排水區域列表。
@@ -365,8 +360,47 @@
           redWatershedsList.appendChild(li);
       });
     }
+ 
+    /**
+     * 載入所有水利署淹水潛勢圖 (WMS)
+     */
+    function loadFloodInundationLayers() { // 函式名稱改為複數
+    const wmsUrl = "https://maps.wra.gov.tw/arcgis/services/WMS/GIC_WMS/MapServer/WMSServer";
+    
+    // 共用的 WMS 選項
+    const wmsOptions = {
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.6,
+        attribution: '資料來源: <a href="https://www.wra.gov.tw/" target="_blank">經濟部水利署</a>'
+    };
 
+    // 建立 24hr/200mm 圖層
+    floodInundationLayer_200mm = L.tileLayer.wms(wmsUrl, {
+        ...wmsOptions,
+        layers: 'flood_200mm_24hr'
+    });
 
+    // 建立 24hr/350mm 圖層
+    floodInundationLayer_350mm = L.tileLayer.wms(wmsUrl, {
+        ...wmsOptions,
+        layers: 'flood_350mm_24hr'
+    });
+
+    // 建立 24hr/500mm 圖層
+    floodInundationLayer_500mm = L.tileLayer.wms(wmsUrl, {
+        ...wmsOptions,
+        layers: 'flood_500mm_24hr'
+    });
+
+    // 建立 24hr/650mm 圖層
+    floodInundationLayer_650mm = L.tileLayer.wms(wmsUrl, {
+        ...wmsOptions,
+        layers: 'flood_650mm_24hr'
+    });
+
+    console.log("所有 WMS 淹水潛勢圖層已準備完成。");
+    }
 
     /**
      * 載入集水區資料並添加到地圖。
@@ -377,7 +411,7 @@
         map.removeLayer(watershedLayer); 
       }
       watershedLayer = L.esri.featureLayer({
-        url: "https://gisportal.triwra.org.tw/server/rest/services/Hosted/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4%E9%9B%86%E6%B0%B4%E5%8D%8020250806/FeatureServer/0",
+        url: "https://gisportal.triwra.org.tw/server/rest/services/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4%E9%9B%86%E6%B0%B4%E5%8D%80_%E9%87%8D%E7%8F%BE%E6%9C%9F/MapServer/0",
         style: function (feature) {
           return {
             color: "#666",
@@ -499,6 +533,11 @@
 
       // 定義圖層控制
       const overlayMaps = {
+        "淹水潛勢 (24hr/200mm)": floodInundationLayer_200mm,
+        "淹水潛勢 (24hr/350mm)": floodInundationLayer_350mm,
+        "淹水潛勢 (24hr/500mm)": floodInundationLayer_500mm,
+        "淹水潛勢 (24hr/650mm)": floodInundationLayer_650mm,
+        "淹水感測器": floodSensorLayer,
         "雨量測站": stationLayerGroup, // 這個現在控制的是個別測站層
       //"縣市雨量群聚": countyClusterLayer, // 新增縣市群聚作為可切換圖層
         "區域排水": watershedLayer,
@@ -507,6 +546,23 @@
 
       // 將圖層控制添加到地圖
       L.control.layers(baseMaps, overlayMaps, { position: "topright" }).addTo(map);
+
+    // 監聽圖層控制器的勾選/取消勾選事件
+        map.on('overlayadd', function(e) {
+            // 當有圖層被加入時觸發
+            if (e.layer === floodSensorLayer) {
+                isFloodLayerManuallyEnabled = true;
+                updateStationDisplay(); // 立刻根據當前縮放等級判斷一次
+            }
+        });
+
+        map.on('overlayremove', function(e) {
+    // 當有圖層被移除時觸發
+            if (e.layer === floodSensorLayer) {
+                isFloodLayerManuallyEnabled = false;
+                // Leaflet 會自動移除圖層，所以這裡不需要再呼叫 updateStationDisplay
+            }
+        });
     }
 
     /**
@@ -541,6 +597,92 @@
           loadWatersheds(); 
         });
     }
+    
+    /**
+     * 載入並繪製水利署淹水感測器資料 (使用 OGC SensorThings API)
+     */
+    async function loadFloodSensorData() {
+    // 提供的 API 網址，這是第一頁的資料
+    let nextUrl = "https://sta.ci.taiwan.gov.tw/STA_WaterResource_v2/v1.0/Datastreams?$expand=Thing,Thing/Locations,Observations($orderby=phenomenonTime%20desc;$top=1)&$filter=Thing/properties/authority_type%20eq%20%27%E6%B0%B4%E5%88%A9%E7%BD%B2%EF%BC%88%E8%88%87%E7%B8%A3%E5%B8%82%E6%94%BF%E5%BA%9C%E5%90%88%E5%BB%BA%EF%BC%89%27%20and%20substringof(%27Datastream_Category_type=%E6%B7%B9%E6%B0%B4%E6%84%9F%E6%B8%AC%E5%99%A8%27,description)%20and%20substringof(%27Datastream_Category=%E6%B7%B9%E6%B0%B4%E6%B7%B1%E5%BA%A6%27,description)&$count=true";
+    
+    let totalSensors = 0;
+
+    try {
+        // 使用 while 迴圈處理分頁，直到沒有下一頁的連結為止
+        while (nextUrl) {
+        const response = await fetch(nextUrl);
+        const data = await response.json();
+        
+        const sensors = data.value; // 感測器資料在 'value' 陣列中
+
+        sensors.forEach(sensor => {
+            // 使用 ?. (Optional Chaining) 安全地存取深層的物件屬性，避免因資料缺漏而報錯
+            const name = sensor.Thing?.properties?.stationName;
+            const observation = sensor.Observations?.[0]; // 最新的觀測值
+            const locationInfo = sensor.Thing?.Locations?.[0];
+            
+            // 確保所有必要資訊都存在
+            if (!name || !observation || !locationInfo?.location?.coordinates) {
+            return; // 跳過資料不完整的測站
+            }
+            
+            const statusValue = observation.result;
+            const time = observation.phenomenonTime;
+            const coords = locationInfo.location.coordinates;
+            let lon = coords[0]; // 經度
+            let lat = coords[1]; // 緯度
+
+            // 手動校正「新莊區思源路36號」的錯誤座標
+            if (name === '新莊區思源路36號') {
+                console.log(`校正測站座標: ${name}`); // 在主控台顯示校正訊息
+                lat = 25.0421899788156;
+                lon = 121.46034048631097;
+            }
+            
+            // 檢查經緯度是否存在
+            if (!lat || !lon) {
+                return; 
+            }
+
+            // 根據淹水深度決定圖示樣式和狀態文字
+            let iconClass = 'flood-marker-normal';
+            let statusText = `正常 (0 cm)`;
+            if (statusValue > 0) {
+              iconClass = 'flood-marker-alert';
+              statusText = `淹水 ${statusValue} 公分`;
+            }
+
+            const floodIcon = L.divIcon({
+              className: iconClass,
+              iconSize: [14,14],
+              html: '🌊'
+            });
+
+            
+
+            const marker = L.marker([lat, lon], { icon: floodIcon });
+
+            marker.bindPopup(
+            `<b>${name}</b><br>` +
+            `狀態：<b>${statusText}</b><br>` +
+            `更新時間：${new Date(time).toLocaleString('zh-TW')}`
+            );
+
+            marker.addTo(floodSensorLayer);
+        });
+        
+        totalSensors += sensors.length;
+        nextUrl = data['@iot.nextLink']; // 取得下一頁的網址
+        }
+
+        // 預設將此圖層加入地圖
+        // floodSensorLayer.addTo(map);
+        console.log(`淹水感測器圖資載入完成，共 ${totalSensors} 個測站。`);
+
+    } catch (err) {
+        console.error("淹水感測器資料載入失敗:", err);
+    }
+    }
 
     // --- 可調整大小的面板邏輯 ---
     const resizer = document.getElementById('resizer');
@@ -574,6 +716,9 @@
     // 監聽地圖縮放事件，以更新測站顯示模式
     map.on('zoomend', updateStationDisplay);
 
+    const cwaFrame = document.getElementById('cwa-frame');
+    const toggleCwaBtn = document.getElementById('toggleCwaBtn')
+
     function handleResize() {
          updateStationDisplay(); // 更新測站顯示
 
@@ -584,15 +729,14 @@
         }
     }   
     // 監聽視窗大小變化事件，以實現更完整的 RWD 效果
-    window.addEventListener('resize', updateStationDisplay);
+    window.addEventListener('resize', handleResize)
 
     // 初始化應用程式
+    loadFloodInundationLayers();
     loadStationData();
-    handleResize(); //【⭐新增】在初次載入時也執行一次，確保初始狀態正確
+    loadFloodSensorData(); 
+    handleResize();
 
-    // CWA 框架收合/展開功能
-    const cwaFrame = document.getElementById('cwa-frame');
-    const toggleCwaBtn = document.getElementById('toggleCwaBtn');
 
     toggleCwaBtn.addEventListener('click', () => {
       cwaFrame.classList.toggle('collapsed');
@@ -618,4 +762,5 @@
 
     legendHeader.addEventListener('click', () => {
         legend.classList.toggle('collapsed');
+
     });
