@@ -116,8 +116,27 @@
       font-size: 12px; /* 調整文字大小 */
       line-height: 1;
     }
-    
-    /* ---【修改處 1】--- */
+  
+    /* --- 新增：淹水感測器圖示樣式 --- */
+    .flood-marker-normal,
+    .flood-marker-alert {
+    background-color: rgba(0, 150, 255, 0.8); /* 正常狀態: 藍色 */
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 450%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    color: white;
+    width: 14px; 
+    height: 14px;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 13px; /* 讓表情符號垂直置中 */
+    }
+
+    .flood-marker-alert {
+    background-color: rgba(231, 76, 60, 0.9); /* 淹水狀態: 紅色 */
+    }
+
     /* 中間地圖區塊 */
     #map-container { /* 新增：地圖與圖例的容器 */
       position: relative; /* 作為圖例絕對定位的基準 */
