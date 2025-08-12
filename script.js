@@ -8,7 +8,35 @@
     // 新增：兩個圖層群組，一個用於個別測站，一個用於縣市群聚
     let stationLayerGroup = L.layerGroup(); // 用於個別測站顯示
     let countyClusterLayer = L.layerGroup(); // 用於縣市群聚顯示
-    let floodSensorLayer = L.layerGroup(); // 用於淹水感測器
+    let rainMasterLayer = L.layerGroup(); // ⭐ 新增：雨量測站的主圖層容器
+
+    
+    // 初始化淹水感測器圖層時，加入 disableClusteringAtZoom 選項
+    let floodSensorLayer = L.markerClusterGroup({
+        disableClusteringAtZoom: 12, // 在地圖層級達到 12 時，展開所有叢集
+        
+        // ⭐ 新增：自訂圖示產生函式
+        iconCreateFunction: function (cluster) {
+            const count = cluster.getChildCount(); // 取得叢集內的數量
+            let sizeClass = 'small'; // 預設尺寸
+            
+            // 根據數量決定尺寸樣式
+            if (count >= 10 && count < 100) {
+                sizeClass = 'medium';
+            } else if (count >= 100) {
+                sizeClass = 'large';
+            }
+
+            const className = `flood-sensor-cluster marker-cluster-${sizeClass}`;
+            
+            // 產生包含數字和文字的雙行 HTML，並回傳為 L.divIcon
+            return L.divIcon({
+                html: `<div>${count}</div><div class="cluster-text">淹水測站</div>`,
+                className: className,
+                iconSize: null // 尺寸由 CSS 決定
+            });
+        }
+    });
     let isFloodLayerManuallyEnabled = false; // 追蹤使用者是否手動開啟淹水圖層
     let isRainLayerManuallyEnabled = true; // 追蹤雨量圖層的勾選狀態，預設為開啟
     let loodInundationLayer_200mm, 
@@ -243,7 +271,8 @@
     /**
      * 根據地圖縮放等級，顯示縣市群聚或個別測站。
      */
-    function updateStationDisplay() {
+    // ⭐ (新的 updateStationDisplay 函式)
+function updateStationDisplay() {
     let zoomThreshold;
     if (window.innerWidth <= 768) {
         zoomThreshold = 10;
@@ -252,17 +281,15 @@
     }
     const currentZoom = map.getZoom();
 
-    // --- 控制雨量測站圖層的邏輯 ---
-    // 先清除現有圖層，確保不會有殘留
+    // 清空主圖層容器 和 兩個子圖層的內容
+    rainMasterLayer.clearLayers();
     stationLayerGroup.clearLayers();
     countyClusterLayer.clearLayers();
-    map.removeLayer(stationLayerGroup);
-    map.removeLayer(countyClusterLayer);
 
+    // 只有當手動啟用雨量圖層時，才執行後續操作
     if (isRainLayerManuallyEnabled) {
-        // 只有當手動啟用雨量圖層時，才根據縮放等級顯示適當圖層
         if (currentZoom < zoomThreshold) {
-            // 顯示縣市群聚圖層
+            // 重新計算並填滿 縣市群聚圖層
             const countyStations = {};
             stationPoints.forEach(station => {
                 const countyName = station.county || '未知縣市';
@@ -281,7 +308,7 @@
                     const clusterMarker = L.marker([centerLat, centerLon], {
                         icon: L.divIcon({
                             className: 'county-cluster-marker',
-                            html: `<div>${stationsInCounty.length}測站</div>`,
+                            html: `<div>${stationsInCounty.length}</div><div>雨量測站</div>`,
                             iconSize: [50, 50],
                             iconAnchor: [20, 20]
                         })
@@ -291,9 +318,10 @@
                     countyClusterLayer.addLayer(clusterMarker);
                 }
             }
-            countyClusterLayer.addTo(map);
+            // 將 縣市群聚圖層 加入到主容器中
+            rainMasterLayer.addLayer(countyClusterLayer);
         } else {
-            // 顯示個別測站圖層
+            // 重新計算並填滿 個別測站圖層
             stationPoints.forEach((station) => {
                 const marker = L.circleMarker([station.lat, station.lon], {
                     radius: 4.5,
@@ -314,15 +342,10 @@
                 stationLayerGroup.addLayer(marker);
                 stationLayerGroup.addLayer(label);
             });
-            stationLayerGroup.addTo(map);
+            // 將 個別測站圖層 加入到主容器中
+            rainMasterLayer.addLayer(stationLayerGroup);
         }
     }
-        // --- 控制淹水感測器圖層的邏輯 ---
-      if (isFloodLayerManuallyEnabled && currentZoom >= zoomThreshold) {
-          if (!map.hasLayer(floodSensorLayer)) map.addLayer(floodSensorLayer);
-      } else {
-          if (map.hasLayer(floodSensorLayer)) map.removeLayer(floodSensorLayer);
-      }
 }
 
     /**
@@ -531,39 +554,47 @@
         updateStationDisplay(); 
       });
 
-      // 定義圖層控制
+  
+      // 定義圖層控制，將「雨量測站」指向主圖層容器
       const overlayMaps = {
         "淹水潛勢 (24hr/200mm)": floodInundationLayer_200mm,
         "淹水潛勢 (24hr/350mm)": floodInundationLayer_350mm,
         "淹水潛勢 (24hr/500mm)": floodInundationLayer_500mm,
         "淹水潛勢 (24hr/650mm)": floodInundationLayer_650mm,
         "淹水感測器": floodSensorLayer,
-        "雨量測站": stationLayerGroup, // 這個現在控制的是個別測站層
-      //"縣市雨量群聚": countyClusterLayer, // 新增縣市群聚作為可切換圖層
+        "雨量測站": rainMasterLayer, // 修改此行
         "區域排水": watershedLayer,
         "縣市界": cityLayer,
       };
 
       // 將圖層控制添加到地圖
       L.control.layers(baseMaps, overlayMaps, { position: "topright" }).addTo(map);
+      
+      // 預設將雨量主圖層加入地圖，使其核取方塊為勾選狀態
+      rainMasterLayer.addTo(map);
 
-    // 監聽圖層控制器的勾選/取消勾選事件
-        map.on('overlayadd', function(e) {
-            // 當有圖層被加入時觸發
-            if (e.layer === floodSensorLayer) {
-                isFloodLayerManuallyEnabled = true;
-                updateStationDisplay(); // 立刻根據當前縮放等級判斷一次
-            }
-        });
+      // 更新事件監聽，全部改為監聽主圖層的狀態
+      map.on('overlayadd', function(e) {
+          if (e.layer === floodSensorLayer) {
+              isFloodLayerManuallyEnabled = true;
+          }
+          if (e.layer === rainMasterLayer) {
+              isRainLayerManuallyEnabled = true;
+              updateStationDisplay();
+          }
+      });
 
-        map.on('overlayremove', function(e) {
-    // 當有圖層被移除時觸發
-            if (e.layer === floodSensorLayer) {
-                isFloodLayerManuallyEnabled = false;
-                // Leaflet 會自動移除圖層，所以這裡不需要再呼叫 updateStationDisplay
-            }
-        });
-    }
+      map.on('overlayremove', function(e) {
+          if (e.layer === floodSensorLayer) {
+              isFloodLayerManuallyEnabled = false;
+          }
+          if (e.layer === rainMasterLayer) {
+              isRainLayerManuallyEnabled = false;
+              // 當關閉主圖層時，清空裡面的內容
+              rainMasterLayer.clearLayers();
+          }
+      });
+}
 
     /**
      * 從中央氣象署 API 載入雨量測站資料。
