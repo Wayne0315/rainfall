@@ -248,6 +248,7 @@
       color: white;
       font-weight: bold;
       display: flex;
+      flex-direction: column; /* 新增此行，讓內容垂直排列 */
       align-items: center;
       justify-content: center;
       border: 2px solid rgb(243, 243, 243);
@@ -261,10 +262,10 @@
     }
 
     .county-cluster-marker div:first-child {
-      font-size: 13px;
+      font-size: 14px;
     }
     .county-cluster-marker div:last-child {
-      font-size: 11px;
+      font-size: 10px;
     }
 
     /* --- 可收合圖例樣式 --- */
@@ -366,6 +367,63 @@
       line-height: 1.2;
     }
 
+
+    /* 叢集圖示的基礎樣式 */
+    .flood-sensor-cluster {
+        color: #fff;
+        background-color: rgba(41, 128, 185, 0.9); /* 主色調：藍色 */
+        border-radius: 50%;
+        text-align: center;
+        font-weight: bold;
+        display: flex;
+        flex-direction: column; /* 垂直排列 */
+        justify-content: center;
+        align-items: center;
+        transition: all 0.2s ease-out;
+        border: 2px solid white;
+        padding: 5px;
+        box-sizing: border-box;
+    }
+
+    .flood-sensor-cluster:hover {
+        transform: scale(1.1);
+        background-color: rgba(31, 98, 155, 1); /* 滑鼠懸停時加深顏色 */
+    }
+
+    /* 上方數字的樣式 */
+    .flood-sensor-cluster div:first-child {
+        line-height: 1.1;
+        background-color: transparent;
+    }
+
+    /* 下方文字("淹水感測站")的樣式 */
+    .flood-sensor-cluster .cluster-text {
+        font-size: 10px;
+        line-height: 1.1;
+        font-weight: normal;
+        white-space: nowrap; /* 防止文字換行 */
+        background-color: transparent; 
+    }
+
+    /* 不同尺寸的變化 */
+    .marker-cluster-small {
+        width: 54px;
+        height: 54px;
+    }
+    .marker-cluster-small div:first-child { font-size: 16px; }
+
+    .marker-cluster-medium {
+        width: 60px;
+        height: 60px;
+    }
+    .marker-cluster-medium div:first-child { font-size: 18px; }
+
+    .marker-cluster-large {
+        width: 68px;
+        height: 68px;
+    }
+    .marker-cluster-large div:first-child { font-size: 20px; }
+    .marker-cluster-large .cluster-text { font-size: 11px; }
 
     /* 響應式調整 */
     @media (max-width: 768px) {
