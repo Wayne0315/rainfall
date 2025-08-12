@@ -151,7 +151,7 @@
 
       watershedLayer.eachFeature((layer) => {
         const feature = layer.feature;
-        const areaName = feature.properties?.area_name;
+        const areaName = feature.properties?.name;
         if (areaName === watershedName) {
           const originalStyle = {
             weight: layer.options.weight,
@@ -411,7 +411,7 @@
         map.removeLayer(watershedLayer); 
       }
       watershedLayer = L.esri.featureLayer({
-        url: "https://gisportal.triwra.org.tw/server/rest/services/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4%E9%9B%86%E6%B0%B4%E5%8D%80_%E9%87%8D%E7%8F%BE%E6%9C%9F/MapServer/0",
+        url: "https://gisportal.triwra.org.tw/server/rest/services/%E5%8D%80%E5%9F%9F%E6%8E%92%E6%B0%B4%E9%9B%86%E6%B0%B4%E5%8D%80_test_mapimage/MapServer/0",
         style: function (feature) {
           return {
             color: "#666",
@@ -425,7 +425,7 @@
             `<h3>${feature.properties?.name || "無"}</h3><br>` +
             `<b>2年重現期：</b>${feature.properties?.r_2 || "無"} <br>` +
             `<b>5年重現期：</b>${feature.properties?.r_5 || "無"} <br>` +
-            `<b>10年重現期：</b>${feature.properties?.r_10 || "無"} <br>` +
+            `<b>10年重現期：</b>${feature.properties?.r_10|| "無"} <br>` +
             `<b>25年重現期：</b>${feature.properties?.r_25 || "無"} <br>` +
             `<b>50年重現期：</b>${feature.properties?.r_50 || "無"} <br>` +
             `<b>100年重現期：</b>${feature.properties?.r_100 || "無"} `
